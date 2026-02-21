@@ -147,17 +147,34 @@ export async function fetchNotifications(
     participating,
   });
 
-  return data
+  const filtered = data
     .filter((n) => n.repository.owner.login === GITHUB_ORG)
     .filter((n) => !config.ignoredRepos.includes(n.repository.name))
-    .map((n) => ({
-      id: n.id,
-      reason: n.reason,
-      title: n.subject.title,
-      url: n.subject.url ?? '',
-      repoFullName: n.repository.full_name,
-      type: n.subject.type,
-      updatedAt: n.updated_at,
-      unread: n.unread,
-    }));
+    .filter((n) => n.subject.type === 'Issue' || n.subject.type === 'PullRequest');
+
+  // Fetch subject state to filter to open items only
+  const withState = await Promise.all(
+    filtered.map(async (n) => {
+      if (!n.subject.url) return null;
+      try {
+        const { data: subject } = await octokit.request('GET {url}', { url: n.subject.url });
+        const state = (subject as { state?: string }).state;
+        if (state && state !== 'open') return null;
+      } catch {
+        // If we can't fetch state, include it anyway
+      }
+      return {
+        id: n.id,
+        reason: n.reason,
+        title: n.subject.title,
+        url: n.subject.url ?? '',
+        repoFullName: n.repository.full_name,
+        type: n.subject.type,
+        updatedAt: n.updated_at,
+        unread: n.unread,
+      };
+    }),
+  );
+
+  return withState.filter((n): n is GitHubNotification => n !== null);
 }

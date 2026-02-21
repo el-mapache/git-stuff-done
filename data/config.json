@@ -1,0 +1,7 @@
+{
+  "ignoredRepos": [
+    "copilot-model-registry",
+    "spam-slam",
+    "copilot-twirp"
+  ]
+}
