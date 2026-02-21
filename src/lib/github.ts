@@ -1,6 +1,8 @@
 import { Octokit } from '@octokit/rest';
 import { execSync } from 'child_process';
 
+export const GITHUB_ORG = 'github';
+
 // --- Token retrieval (cached per process) ---
 
 let cachedToken: string | null = null;
@@ -113,7 +115,11 @@ export async function fetchLinkInfo(
 
 export function extractGitHubUrls(markdown: string): string[] {
   const matches = markdown.match(GITHUB_URL_RE_GLOBAL);
-  return matches ? Array.from(new Set(matches)) : [];
+  if (!matches) return [];
+  return Array.from(new Set(matches)).filter((url) => {
+    const parsed = parseGitHubUrl(url);
+    return parsed && parsed.owner === GITHUB_ORG;
+  });
 }
 
 // --- Notifications ---
@@ -139,14 +145,16 @@ export async function fetchNotifications(
     participating,
   });
 
-  return data.map((n) => ({
-    id: n.id,
-    reason: n.reason,
-    title: n.subject.title,
-    url: n.subject.url ?? '',
-    repoFullName: n.repository.full_name,
-    type: n.subject.type,
-    updatedAt: n.updated_at,
-    unread: n.unread,
-  }));
+  return data
+    .filter((n) => n.repository.owner.login === GITHUB_ORG)
+    .map((n) => ({
+      id: n.id,
+      reason: n.reason,
+      title: n.subject.title,
+      url: n.subject.url ?? '',
+      repoFullName: n.repository.full_name,
+      type: n.subject.type,
+      updatedAt: n.updated_at,
+      unread: n.unread,
+    }));
 }
