@@ -1,0 +1,88 @@
+import { readFile, writeFile, mkdir } from "fs/promises";
+import path from "path";
+
+// --- Types ---
+
+export type TodoItem = {
+  id: string;
+  title: string;
+  done: boolean;
+  source: "manual" | "suggested";
+  createdAt: string;
+};
+
+// --- Paths ---
+
+const logsDir = () => path.join(process.cwd(), "logs");
+const dataDir = () => path.join(process.cwd(), "data");
+
+export function getLogPath(date: string): string {
+  return path.join(logsDir(), `${date}.md`);
+}
+
+export function getRichLogPath(date: string): string {
+  return path.join(logsDir(), `${date}.rich.md`);
+}
+
+export function getTodayDate(): string {
+  const d = new Date();
+  return d.toISOString().slice(0, 10);
+}
+
+// --- Directory bootstrapping ---
+
+async function ensureDirs(): Promise<void> {
+  await mkdir(logsDir(), { recursive: true });
+  await mkdir(dataDir(), { recursive: true });
+}
+
+// --- Log I/O ---
+
+export async function readLog(date: string): Promise<string> {
+  try {
+    return await readFile(getLogPath(date), "utf-8");
+  } catch {
+    return "";
+  }
+}
+
+export async function writeLog(date: string, content: string): Promise<void> {
+  await ensureDirs();
+  await writeFile(getLogPath(date), content, "utf-8");
+}
+
+export async function readRichLog(date: string): Promise<string> {
+  try {
+    return await readFile(getRichLogPath(date), "utf-8");
+  } catch {
+    return "";
+  }
+}
+
+export async function writeRichLog(
+  date: string,
+  content: string,
+): Promise<void> {
+  await ensureDirs();
+  await writeFile(getRichLogPath(date), content, "utf-8");
+}
+
+// --- Todo I/O ---
+
+function todosPath(): string {
+  return path.join(dataDir(), "todos.json");
+}
+
+export async function readTodos(): Promise<TodoItem[]> {
+  try {
+    const raw = await readFile(todosPath(), "utf-8");
+    return JSON.parse(raw) as TodoItem[];
+  } catch {
+    return [];
+  }
+}
+
+export async function writeTodos(todos: TodoItem[]): Promise<void> {
+  await ensureDirs();
+  await writeFile(todosPath(), JSON.stringify(todos, null, 2), "utf-8");
+}
