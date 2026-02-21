@@ -76,6 +76,10 @@ export default function TodoList() {
     }
   };
 
+  const dismissSuggestion = (title: string) => {
+    setSuggestions((prev) => prev.filter((s) => s !== title));
+  };
+
   const acceptSuggestion = (title: string) => {
     setSuggestions((prev) => prev.filter((s) => s !== title));
     addTodo(title, "suggested");
@@ -126,12 +130,19 @@ export default function TodoList() {
           </p>
           <ul className="space-y-1">
             {suggestions.map((s) => (
-              <li key={s}>
+              <li key={s} className="flex items-center gap-1">
                 <button
                   onClick={() => acceptSuggestion(s)}
-                  className="w-full rounded px-2 py-1 text-left text-sm text-zinc-200 transition hover:bg-indigo-900/40"
+                  className="flex-1 rounded px-2 py-1 text-left text-sm text-zinc-200 transition hover:bg-indigo-900/40"
                 >
                   + {s}
+                </button>
+                <button
+                  onClick={() => dismissSuggestion(s)}
+                  className="shrink-0 rounded px-1.5 py-1 text-xs text-zinc-500 transition hover:bg-zinc-800 hover:text-red-400"
+                  aria-label="Dismiss suggestion"
+                >
+                  ✕
                 </button>
               </li>
             ))}
