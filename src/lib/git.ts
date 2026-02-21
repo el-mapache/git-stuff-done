@@ -25,6 +25,13 @@ export function commitWorkLog(
 
   execSync(`git commit -m ${JSON.stringify(commitMessage)}`, { cwd });
 
+  // Push to remote if configured
+  try {
+    execSync("git push", { cwd });
+  } catch {
+    // Push may fail if no remote is set; commit still succeeded
+  }
+
   return { committed: true, message: commitMessage };
 }
 
