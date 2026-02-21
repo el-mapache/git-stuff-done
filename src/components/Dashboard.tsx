@@ -7,12 +7,40 @@ import TodoList from './TodoList';
 import GitHubNotifications from './GitHubNotifications';
 import { GITHUB_ORG } from '@/lib/constants';
 
+const QUOTES = [
+  "Ship it. 🚀",
+  "Code is read more often than it is written.",
+  "First, solve the problem. Then, write the code.",
+  "Make it work, make it right, make it fast.",
+  "The best error message is the one that never shows up.",
+  "Simplicity is the soul of efficiency.",
+  "Talk is cheap. Show me the code. — Linus Torvalds",
+  "Every great developer you know got there by solving problems they were unqualified to solve.",
+  "It works on my machine. 🤷",
+  "Done is better than perfect.",
+  "Weeks of coding can save you hours of planning.",
+  "There are only two hard things: cache invalidation and naming things.",
+  "The only way to go fast is to go well.",
+  "Debugging is twice as hard as writing the code in the first place.",
+  "A ship in harbor is safe, but that is not what ships are built for.",
+  "You miss 100% of the deploys you don't ship.",
+  "Today's mass hack is tomorrow's best practice.",
+  "The best time to plant a tree was 20 years ago. The second best time is now.",
+  "Stay hungry, stay foolish. — Steve Jobs",
+  "Think different. Build different.",
+];
+
+function getRandomQuote() {
+  return QUOTES[Math.floor(Math.random() * QUOTES.length)];
+}
+
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
 export default function Dashboard() {
   const [committing, setCommitting] = useState(false);
+  const [quote] = useState(getRandomQuote);
   const [commitMsg, setCommitMsg] = useState<string | null>(null);
   const [date, setDate] = useState(todayISO());
 
@@ -90,7 +118,7 @@ export default function Dashboard() {
     <div className="flex h-screen flex-col bg-zinc-950 text-zinc-100">
       {/* Header */}
       <header className="flex shrink-0 items-center justify-between border-b border-zinc-800 px-6 py-3">
-        <h1 className="text-xl font-bold tracking-tight">LogPilot</h1>
+        <span className="text-sm italic text-zinc-400 truncate max-w-md">{quote}</span>
         <div className="flex items-center gap-2">
           <button
             onClick={() => shiftDate(-1)}
