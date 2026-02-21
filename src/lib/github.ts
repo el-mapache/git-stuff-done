@@ -1,7 +1,7 @@
+import { GITHUB_ORG } from './constants';
 import { Octokit } from '@octokit/rest';
 import { execSync } from 'child_process';
-
-export const GITHUB_ORG = 'github';
+import { readConfig } from './files';
 
 // --- Token retrieval (cached per process) ---
 
@@ -113,12 +113,13 @@ export async function fetchLinkInfo(
   }
 }
 
-export function extractGitHubUrls(markdown: string): string[] {
+export async function extractGitHubUrls(markdown: string): Promise<string[]> {
   const matches = markdown.match(GITHUB_URL_RE_GLOBAL);
   if (!matches) return [];
+  const config = await readConfig();
   return Array.from(new Set(matches)).filter((url) => {
     const parsed = parseGitHubUrl(url);
-    return parsed && parsed.owner === GITHUB_ORG;
+    return parsed && parsed.owner === GITHUB_ORG && !config.ignoredRepos.includes(parsed.repo);
   });
 }
 
@@ -140,6 +141,7 @@ export async function fetchNotifications(
 ): Promise<GitHubNotification[]> {
   const octokit = await getOctokit();
   const participating = options?.participating ?? true;
+  const config = await readConfig();
 
   const { data } = await octokit.activity.listNotificationsForAuthenticatedUser({
     participating,
@@ -147,6 +149,7 @@ export async function fetchNotifications(
 
   return data
     .filter((n) => n.repository.owner.login === GITHUB_ORG)
+    .filter((n) => !config.ignoredRepos.includes(n.repository.name))
     .map((n) => ({
       id: n.id,
       reason: n.reason,

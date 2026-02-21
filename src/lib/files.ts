@@ -11,6 +11,10 @@ export type TodoItem = {
   createdAt: string;
 };
 
+export type AppConfig = {
+  ignoredRepos: string[];
+};
+
 // --- Paths ---
 
 const logsDir = () => path.join(process.cwd(), "logs");
@@ -85,4 +89,26 @@ export async function readTodos(): Promise<TodoItem[]> {
 export async function writeTodos(todos: TodoItem[]): Promise<void> {
   await ensureDirs();
   await writeFile(todosPath(), JSON.stringify(todos, null, 2), "utf-8");
+}
+
+// --- Config I/O ---
+
+function configPath(): string {
+  return path.join(dataDir(), "config.json");
+}
+
+const defaultConfig: AppConfig = { ignoredRepos: [] };
+
+export async function readConfig(): Promise<AppConfig> {
+  try {
+    const raw = await readFile(configPath(), "utf-8");
+    return { ...defaultConfig, ...JSON.parse(raw) } as AppConfig;
+  } catch {
+    return { ...defaultConfig };
+  }
+}
+
+export async function writeConfig(config: AppConfig): Promise<void> {
+  await ensureDirs();
+  await writeFile(configPath(), JSON.stringify(config, null, 2), "utf-8");
 }

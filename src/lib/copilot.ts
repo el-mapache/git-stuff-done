@@ -52,7 +52,7 @@ async function callModel(
  */
 export async function enrichWorkLog(rawMarkdown: string): Promise<string> {
   // 1. Extract GitHub URLs and fetch details
-  const urls = extractGitHubUrls(rawMarkdown);
+  const urls = await extractGitHubUrls(rawMarkdown);
   const linkMap = new Map<string, GitHubLinkInfo>();
 
   const results = await Promise.all(urls.map((u) => fetchLinkInfo(u)));
