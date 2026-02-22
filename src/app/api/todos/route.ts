@@ -8,6 +8,9 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const { title } = (await req.json()) as { title: string };
+  if (!title || typeof title !== "string" || title.trim().length === 0 || title.length > 500) {
+    return NextResponse.json({ error: "Invalid title" }, { status: 400 });
+  }
   const todos = await readTodos();
   const item: TodoItem = {
     id: crypto.randomUUID(),

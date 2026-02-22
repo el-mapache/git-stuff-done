@@ -80,6 +80,28 @@ export default function TodoList({ date }: { date?: string }) {
     }
   };
 
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
+
+  const startEdit = (todo: TodoItem) => {
+    setEditingId(todo.id);
+    setEditingTitle(todo.title);
+  };
+
+  const commitEdit = async (id: string) => {
+    const title = editingTitle.trim();
+    setEditingId(null);
+    if (!title) return;
+    const res = await fetch("/api/todos", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, title }),
+    });
+    setTodos(await res.json());
+  };
+
+  const cancelEdit = () => setEditingId(null);
+
   const dismissSuggestion = (title: string) => {
     setSuggestions((prev) => prev.filter((s) => s !== title));
   };
@@ -90,61 +112,53 @@ export default function TodoList({ date }: { date?: string }) {
   };
 
   return (
-    <div className="rounded-2xl border border-zinc-200 p-4">
-      {/* Header */}
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-zinc-700">✅ TODO List</h2>
+    <div className="p-1 h-full flex flex-col">
+      <div className="flex items-center justify-between mb-4 border-b border-border pb-2">
+        <h2 className="text-lg font-semibold text-primary">✅ TODO</h2>
         <button
           onClick={suggest}
           disabled={suggesting}
-          className="rounded-lg bg-violet-500 px-3 py-1 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-600 disabled:opacity-50"
+          className="rounded-xl bg-gradient-to-r from-primary to-accent-foreground px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-sm transition hover:opacity-90 disabled:opacity-50"
         >
-          {suggesting ? "Thinking… 🤔" : "✨ Suggest TODOs"}
+          {suggesting ? "Thinking…" : "✨ Suggest"}
         </button>
       </div>
 
-      {/* Add input */}
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          addTodo(input);
-        }}
-        className="mb-4 flex gap-2"
-      >
+      <div className="mb-4 flex gap-2">
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && addTodo(input)}
           placeholder="Add a todo…"
-          className="flex-1 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-sm text-zinc-800 placeholder-zinc-400 outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-200"
+          className="flex-1 rounded-xl border border-input bg-muted/50 px-3 py-1.5 text-sm text-foreground placeholder-muted-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/20"
         />
         <button
-          type="submit"
-          className="rounded-lg bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-200"
+          onClick={() => addTodo(input)}
+          className="rounded-xl bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground transition hover:opacity-80"
         >
           Add
         </button>
-      </form>
+      </div>
 
-      {/* Suggestions */}
       {suggestions.length > 0 && (
-        <div className="mb-4 rounded-lg border border-violet-200 bg-violet-50 p-3">
-          <p className="mb-2 text-xs font-semibold text-violet-600">
-            ✨ AI Suggestions — click to add
+        <div className="mb-4 rounded-xl border border-border bg-muted/30 p-3">
+          <p className="mb-2 text-xs font-semibold text-primary">
+            ✨ AI Suggestions
           </p>
           <ul className="space-y-1">
-            {suggestions.map((s) => (
-              <li key={s} className="flex items-center gap-1">
+            {suggestions.map((s, i) => (
+              <li key={i} className="flex items-center justify-between gap-2 group">
                 <button
                   onClick={() => acceptSuggestion(s)}
-                  className="flex-1 rounded px-2 py-1 text-left text-sm text-zinc-700 transition hover:bg-violet-100"
+                  className="flex-1 text-left text-sm text-foreground hover:text-primary transition-colors truncate"
+                  title={s}
                 >
                   + {s}
                 </button>
                 <button
                   onClick={() => dismissSuggestion(s)}
-                  className="shrink-0 rounded px-1.5 py-1 text-xs text-zinc-400 transition hover:bg-zinc-100 hover:text-rose-500"
-                  aria-label="Dismiss suggestion"
+                  className="text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
                 >
                   ✕
                 </button>
@@ -154,47 +168,66 @@ export default function TodoList({ date }: { date?: string }) {
         </div>
       )}
 
-      {/* Todo list */}
-      {todos.length === 0 ? (
-        <p className="py-6 text-center text-sm text-zinc-400">No todos yet. Add one above! 🎯</p>
-      ) : (
-        <ul className="space-y-1">
-          {todos.map((todo) => (
-            <li
-              key={todo.id}
-              className={`group flex items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-zinc-50 ${
-                todo.done ? "opacity-50" : ""
-              }`}
-            >
-              <input
-                type="checkbox"
-                checked={todo.done}
-                onChange={() => toggleTodo(todo.id, !todo.done)}
-                className="h-4 w-4 accent-violet-500"
-              />
-              <span
-                className={`flex-1 text-sm text-zinc-700 ${
-                  todo.done ? "line-through" : ""
+      <div className="flex-1 overflow-y-auto min-h-0">
+        {todos.length === 0 ? (
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+            No todos yet 🎯
+          </div>
+        ) : (
+          <ul className="space-y-1">
+            {todos.map((todo) => (
+              <li
+                key={todo.id}
+                className={`group flex items-center gap-2 rounded-xl px-2 py-1.5 transition hover:bg-accent/50 ${
+                  todo.done ? "opacity-50" : ""
                 }`}
               >
-                {todo.title}
-              </span>
-              {todo.source === "suggested" && (
-                <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-600">
-                  AI
-                </span>
-              )}
-              <button
-                onClick={() => deleteTodo(todo.id)}
-                className="text-zinc-300 opacity-0 transition hover:text-rose-500 group-hover:opacity-100"
-                aria-label="Delete"
-              >
-                ✕
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+                <input
+                  type="checkbox"
+                  checked={todo.done}
+                  onChange={() => toggleTodo(todo.id, !todo.done)}
+                  className="h-4 w-4 shrink-0 accent-primary rounded border-input"
+                />
+                
+                {editingId === todo.id ? (
+                  <input
+                    autoFocus
+                    type="text"
+                    value={editingTitle}
+                    onChange={(e) => setEditingTitle(e.target.value)}
+                    onBlur={() => commitEdit(todo.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") commitEdit(todo.id);
+                      if (e.key === "Escape") cancelEdit();
+                    }}
+                    className="flex-1 rounded-lg border border-input bg-background px-2 py-0.5 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring/20"
+                  />
+                ) : (
+                  <span
+                    onDoubleClick={() => !todo.done && startEdit(todo)}
+                    className={`flex-1 cursor-text text-sm text-foreground ${todo.done ? "line-through text-muted-foreground" : ""}`}
+                    title="Double-click to edit"
+                  >
+                    {todo.title}
+                  </span>
+                )}
+                
+                {todo.source === 'suggested' && (
+                  <span className="shrink-0 text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">AI</span>
+                )}
+
+                <button
+                  onClick={() => deleteTodo(todo.id)}
+                  className="shrink-0 text-muted-foreground opacity-0 transition hover:text-destructive group-hover:opacity-100"
+                  aria-label="Delete"
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
