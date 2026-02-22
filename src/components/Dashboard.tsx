@@ -7,40 +7,12 @@ import TodoList from './TodoList';
 import GitHubNotifications from './GitHubNotifications';
 import { GITHUB_ORG } from '@/lib/constants';
 
-const QUOTES = [
-  "Ship it. 🚀",
-  "Code is read more often than it is written.",
-  "First, solve the problem. Then, write the code.",
-  "Make it work, make it right, make it fast.",
-  "The best error message is the one that never shows up.",
-  "Simplicity is the soul of efficiency.",
-  "Talk is cheap. Show me the code. — Linus Torvalds",
-  "Every great developer you know got there by solving problems they were unqualified to solve.",
-  "It works on my machine. 🤷",
-  "Done is better than perfect.",
-  "Weeks of coding can save you hours of planning.",
-  "There are only two hard things: cache invalidation and naming things.",
-  "The only way to go fast is to go well.",
-  "Debugging is twice as hard as writing the code in the first place.",
-  "A ship in harbor is safe, but that is not what ships are built for.",
-  "You miss 100% of the deploys you don't ship.",
-  "Today's mass hack is tomorrow's best practice.",
-  "The best time to plant a tree was 20 years ago. The second best time is now.",
-  "Stay hungry, stay foolish. — Steve Jobs",
-  "Think different. Build different.",
-];
-
-function getRandomQuote() {
-  return QUOTES[Math.floor(Math.random() * QUOTES.length)];
-}
-
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
 export default function Dashboard() {
   const [committing, setCommitting] = useState(false);
-  const [quote] = useState(getRandomQuote);
   const [commitMsg, setCommitMsg] = useState<string | null>(null);
   const [date, setDate] = useState(todayISO());
 
@@ -115,22 +87,22 @@ export default function Dashboard() {
   });
 
   return (
-    <div className="flex h-screen flex-col bg-zinc-950 text-zinc-100">
+    <div className="flex h-screen flex-col bg-amber-50/40 text-zinc-800">
       {/* Header */}
-      <header className="flex shrink-0 items-center justify-between border-b border-zinc-800 px-6 py-3">
-        <span className="text-sm italic text-zinc-400 truncate max-w-md">{quote}</span>
+      <header className="flex shrink-0 items-center justify-between border-b border-amber-200 bg-white px-6 py-3 shadow-sm">
+        <span className="text-lg font-bold tracking-tight">✨ get stuff done</span>
         <div className="flex items-center gap-2">
           <button
             onClick={() => shiftDate(-1)}
-            className="rounded-md px-2 py-1 text-sm text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200"
+            className="rounded-md px-2 py-1 text-sm text-zinc-500 transition hover:bg-amber-100 hover:text-zinc-800"
           >
             ←
           </button>
-          <span className="text-sm text-zinc-400">{displayDate}</span>
+          <span className="text-sm font-medium text-zinc-600">{displayDate}</span>
           {!isToday && (
             <button
               onClick={() => shiftDate(1)}
-              className="rounded-md px-2 py-1 text-sm text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200"
+              className="rounded-md px-2 py-1 text-sm text-zinc-500 transition hover:bg-amber-100 hover:text-zinc-800"
             >
               →
             </button>
@@ -138,7 +110,7 @@ export default function Dashboard() {
           {!isToday && (
             <button
               onClick={() => setDate(todayISO())}
-              className="rounded-md px-2 py-1 text-xs text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200"
+              className="rounded-md bg-amber-100 px-2 py-1 text-xs font-medium text-amber-700 transition hover:bg-amber-200"
             >
               Today
             </button>
@@ -146,31 +118,31 @@ export default function Dashboard() {
         </div>
         <div className="flex items-center gap-3">
           {commitMsg && (
-            <span className="text-xs text-zinc-400">{commitMsg}</span>
+            <span className="text-xs text-emerald-600 font-medium">{commitMsg}</span>
           )}
           <button
             onClick={handleCommit}
             disabled={committing}
-            className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
+            className="rounded-lg bg-violet-500 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-violet-600 disabled:opacity-50"
           >
-            {committing ? 'Committing…' : 'Commit Now'}
+            {committing ? 'Committing…' : '🚀 Commit & Push'}
           </button>
           <button
             onClick={() => setShowSettings((s) => !s)}
-            className="rounded-md px-2 py-1.5 text-sm text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200"
+            className="rounded-md px-2 py-1.5 text-sm text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600"
             aria-label="Settings"
           >
-            ⚙
+            ⚙️
           </button>
         </div>
       </header>
 
       {/* Settings panel */}
       {showSettings && (
-        <div className="border-b border-zinc-800 bg-zinc-900 px-6 py-4">
+        <div className="border-b border-amber-200 bg-white px-6 py-4 shadow-sm">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold text-zinc-200">Ignored Repos <span className="text-zinc-500 font-normal">(in {GITHUB_ORG} org)</span></h3>
-            <button onClick={() => setShowSettings(false)} className="text-xs text-zinc-500 hover:text-zinc-300">Close</button>
+            <h3 className="text-sm font-semibold text-zinc-700">Ignored Repos <span className="text-zinc-400 font-normal">(in {GITHUB_ORG} org)</span></h3>
+            <button onClick={() => setShowSettings(false)} className="text-xs text-zinc-400 hover:text-zinc-600">Close</button>
           </div>
           <form onSubmit={(e) => { e.preventDefault(); addIgnoredRepo(); }} className="flex gap-2 mb-2">
             <input
@@ -178,18 +150,18 @@ export default function Dashboard() {
               value={repoInput}
               onChange={(e) => setRepoInput(e.target.value)}
               placeholder="repo-name"
-              className="flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm text-zinc-100 placeholder-zinc-500 outline-none focus:border-indigo-500"
+              className="flex-1 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-sm text-zinc-800 placeholder-zinc-400 outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-200"
             />
-            <button type="submit" className="rounded-lg bg-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-100 transition hover:bg-zinc-600">Add</button>
+            <button type="submit" className="rounded-lg bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-200">Add</button>
           </form>
           {ignoredRepos.length === 0 ? (
-            <p className="text-xs text-zinc-500">No repos ignored. Notifications and enrichment include all repos.</p>
+            <p className="text-xs text-zinc-400">No repos ignored. Notifications and enrichment include all repos.</p>
           ) : (
             <div className="flex flex-wrap gap-2">
               {ignoredRepos.map((repo) => (
-                <span key={repo} className="inline-flex items-center gap-1 rounded-full bg-zinc-800 px-3 py-1 text-xs text-zinc-300">
+                <span key={repo} className="inline-flex items-center gap-1 rounded-full bg-rose-50 border border-rose-200 px-3 py-1 text-xs text-rose-600">
                   {repo}
-                  <button onClick={() => removeIgnoredRepo(repo)} className="text-zinc-500 hover:text-red-400">✕</button>
+                  <button onClick={() => removeIgnoredRepo(repo)} className="text-rose-400 hover:text-rose-600">✕</button>
                 </span>
               ))}
             </div>
@@ -199,16 +171,16 @@ export default function Dashboard() {
 
       {/* Grid */}
       <div className="grid min-h-0 flex-1 grid-cols-[3fr_2fr] grid-rows-2 gap-3 p-3">
-        <div className="overflow-auto rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+        <div className="overflow-auto rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
           <RawWorkLog date={date} />
         </div>
-        <div className="overflow-auto rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+        <div className="overflow-auto rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
           <TodoList />
         </div>
-        <div className="overflow-auto rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+        <div className="overflow-auto rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
           <RichWorkLog date={date} />
         </div>
-        <div className="overflow-auto rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+        <div className="overflow-auto rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
           <GitHubNotifications key={notifsKey} />
         </div>
       </div>

@@ -86,16 +86,16 @@ export default function TodoList() {
   };
 
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+    <div className="rounded-2xl border border-zinc-200 p-4">
       {/* Header */}
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-zinc-100">TODO List</h2>
+        <h2 className="text-lg font-semibold text-zinc-700">✅ TODO List</h2>
         <button
           onClick={suggest}
           disabled={suggesting}
-          className="rounded-lg bg-indigo-600 px-3 py-1 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:opacity-50"
+          className="rounded-lg bg-violet-500 px-3 py-1 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-600 disabled:opacity-50"
         >
-          {suggesting ? "Thinking…" : "Suggest TODOs"}
+          {suggesting ? "Thinking… 🤔" : "✨ Suggest TODOs"}
         </button>
       </div>
 
@@ -112,11 +112,11 @@ export default function TodoList() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Add a todo…"
-          className="flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-100 placeholder-zinc-500 outline-none focus:border-indigo-500"
+          className="flex-1 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-sm text-zinc-800 placeholder-zinc-400 outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-200"
         />
         <button
           type="submit"
-          className="rounded-lg bg-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-100 transition hover:bg-zinc-600"
+          className="rounded-lg bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-200"
         >
           Add
         </button>
@@ -124,22 +124,22 @@ export default function TodoList() {
 
       {/* Suggestions */}
       {suggestions.length > 0 && (
-        <div className="mb-4 rounded-lg border border-indigo-500/30 bg-indigo-950/30 p-3">
-          <p className="mb-2 text-xs font-medium text-indigo-300">
-            AI Suggestions — click to add
+        <div className="mb-4 rounded-lg border border-violet-200 bg-violet-50 p-3">
+          <p className="mb-2 text-xs font-semibold text-violet-600">
+            ✨ AI Suggestions — click to add
           </p>
           <ul className="space-y-1">
             {suggestions.map((s) => (
               <li key={s} className="flex items-center gap-1">
                 <button
                   onClick={() => acceptSuggestion(s)}
-                  className="flex-1 rounded px-2 py-1 text-left text-sm text-zinc-200 transition hover:bg-indigo-900/40"
+                  className="flex-1 rounded px-2 py-1 text-left text-sm text-zinc-700 transition hover:bg-violet-100"
                 >
                   + {s}
                 </button>
                 <button
                   onClick={() => dismissSuggestion(s)}
-                  className="shrink-0 rounded px-1.5 py-1 text-xs text-zinc-500 transition hover:bg-zinc-800 hover:text-red-400"
+                  className="shrink-0 rounded px-1.5 py-1 text-xs text-zinc-400 transition hover:bg-zinc-100 hover:text-rose-500"
                   aria-label="Dismiss suggestion"
                 >
                   ✕
@@ -152,13 +152,13 @@ export default function TodoList() {
 
       {/* Todo list */}
       {todos.length === 0 ? (
-        <p className="py-6 text-center text-sm text-zinc-500">No todos yet.</p>
+        <p className="py-6 text-center text-sm text-zinc-400">No todos yet. Add one above! 🎯</p>
       ) : (
         <ul className="space-y-1">
           {todos.map((todo) => (
             <li
               key={todo.id}
-              className={`group flex items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-zinc-900 ${
+              className={`group flex items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-zinc-50 ${
                 todo.done ? "opacity-50" : ""
               }`}
             >
@@ -166,23 +166,23 @@ export default function TodoList() {
                 type="checkbox"
                 checked={todo.done}
                 onChange={() => toggleTodo(todo.id, !todo.done)}
-                className="h-4 w-4 accent-indigo-500"
+                className="h-4 w-4 accent-violet-500"
               />
               <span
-                className={`flex-1 text-sm text-zinc-200 ${
+                className={`flex-1 text-sm text-zinc-700 ${
                   todo.done ? "line-through" : ""
                 }`}
               >
                 {todo.title}
               </span>
               {todo.source === "suggested" && (
-                <span className="rounded bg-indigo-600/20 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-300">
+                <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold text-violet-600">
                   AI
                 </span>
               )}
               <button
                 onClick={() => deleteTodo(todo.id)}
-                className="text-zinc-600 opacity-0 transition hover:text-red-400 group-hover:opacity-100"
+                className="text-zinc-300 opacity-0 transition hover:text-rose-500 group-hover:opacity-100"
                 aria-label="Delete"
               >
                 ✕

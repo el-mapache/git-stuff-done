@@ -76,29 +76,29 @@ export default function RawWorkLog({ date }: RawWorkLogProps) {
   };
 
   const statusColor: Record<SaveStatus, string> = {
-    idle: 'text-zinc-500',
-    unsaved: 'text-amber-400',
-    saving: 'text-blue-400',
-    saved: 'text-emerald-400',
+    idle: 'text-zinc-400',
+    unsaved: 'text-amber-500',
+    saving: 'text-violet-500',
+    saved: 'text-emerald-500',
   };
 
   return (
-    <div className="flex h-full flex-col bg-zinc-900 rounded-lg border border-zinc-700">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-700">
-        <span className="text-sm font-medium text-zinc-300">
+    <div className="flex h-full flex-col rounded-lg border border-zinc-200">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-200 bg-zinc-50 rounded-t-lg">
+        <span className="text-sm font-semibold text-zinc-600">
           📝 Raw Log — {currentDate}
         </span>
         {status !== 'idle' && (
-          <span className={`text-xs ${statusColor[status]}`}>
+          <span className={`text-xs font-medium ${statusColor[status]}`}>
             {statusLabel[status]}
           </span>
         )}
       </div>
       <textarea
-        className="flex-1 w-full resize-none bg-zinc-950 p-3 font-mono text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none"
+        className="flex-1 w-full resize-none bg-white p-3 font-mono text-sm text-zinc-800 placeholder-zinc-400 focus:outline-none rounded-b-lg"
         value={content}
         onChange={handleChange}
-        placeholder="Start typing your work log..."
+        placeholder="Start typing your work log... ✏️"
         spellCheck={false}
       />
     </div>

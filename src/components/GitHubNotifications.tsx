@@ -27,12 +27,12 @@ function timeAgo(dateString: string): string {
 }
 
 const reasonColors: Record<string, string> = {
-  review_requested: 'bg-purple-500/20 text-purple-300',
-  mention: 'bg-blue-500/20 text-blue-300',
-  assign: 'bg-green-500/20 text-green-300',
-  subscribed: 'bg-gray-500/20 text-gray-400',
-  author: 'bg-yellow-500/20 text-yellow-300',
-  ci_activity: 'bg-orange-500/20 text-orange-300',
+  review_requested: 'bg-violet-100 text-violet-600',
+  mention: 'bg-blue-100 text-blue-600',
+  assign: 'bg-emerald-100 text-emerald-600',
+  subscribed: 'bg-zinc-100 text-zinc-500',
+  author: 'bg-amber-100 text-amber-600',
+  ci_activity: 'bg-orange-100 text-orange-600',
 };
 
 function reasonBadge(reason: string) {
@@ -87,15 +87,15 @@ export default function GitHubNotifications() {
   }, [refresh]);
 
   return (
-    <div className="flex h-full flex-col rounded-xl border border-white/10 bg-gray-900 text-gray-100">
+    <div className="flex h-full flex-col rounded-xl border border-zinc-200 bg-white text-zinc-800">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-        <h2 className="text-sm font-semibold tracking-wide">
-          GitHub Notifications
+      <div className="flex items-center justify-between border-b border-zinc-200 bg-zinc-50 rounded-t-xl px-4 py-3">
+        <h2 className="text-sm font-semibold tracking-wide text-zinc-600">
+          🔔 GitHub Notifications
         </h2>
         <button
           onClick={refresh}
-          className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-white/10 hover:text-gray-200"
+          className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
           aria-label="Refresh notifications"
         >
           <svg
@@ -116,38 +116,38 @@ export default function GitHubNotifications() {
       {/* Body */}
       <div className="flex-1 overflow-y-auto">
         {loading ? (
-          <div className="flex items-center justify-center py-12 text-sm text-gray-500">
+          <div className="flex items-center justify-center py-12 text-sm text-zinc-400">
             Loading…
           </div>
         ) : notifications.length === 0 ? (
-          <div className="flex items-center justify-center py-12 text-sm text-gray-500">
-            No notifications
+          <div className="flex items-center justify-center py-12 text-sm text-zinc-400">
+            No notifications 🎉
           </div>
         ) : (
-          <ul className="divide-y divide-white/5">
+          <ul className="divide-y divide-zinc-100">
             {notifications.map((n) => (
               <li
                 key={n.id}
-                className="px-4 py-3 transition-colors hover:bg-white/5"
+                className="px-4 py-3 transition-colors hover:bg-amber-50/50"
               >
                 <div className="flex items-start justify-between gap-2">
                   <a
                     href={notificationUrl(n)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="min-w-0 flex-1 text-sm font-medium text-gray-100 hover:text-blue-400"
+                    className="min-w-0 flex-1 text-sm font-medium text-zinc-700 hover:text-violet-600"
                   >
                     {n.unread && (
-                      <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-blue-500" />
+                      <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-violet-500" />
                     )}
                     {n.title}
                   </a>
-                  <span className="shrink-0 text-xs text-gray-500">
+                  <span className="shrink-0 text-xs text-zinc-400">
                     {timeAgo(n.updatedAt)}
                   </span>
                 </div>
                 <div className="mt-1 flex items-center gap-2">
-                  <span className="truncate text-xs text-gray-500">
+                  <span className="truncate text-xs text-zinc-400">
                     {n.repoFullName}
                   </span>
                   {reasonBadge(n.reason)}
