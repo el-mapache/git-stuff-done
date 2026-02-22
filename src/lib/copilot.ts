@@ -23,10 +23,14 @@ function applyFallbackEnrichment(
 /**
  * Call the Copilot SDK with a system prompt and user prompt, return the response.
  */
-async function callCopilot(systemPrompt: string, userPrompt: string): Promise<string> {
+export async function callCopilot(
+  systemPrompt: string, 
+  userPrompt: string, 
+  model: string = MODEL
+): Promise<string> {
   const client = new CopilotClient();
   try {
-    const session = await client.createSession({ model: MODEL });
+    const session = await client.createSession({ model });
     // Send system context first, then user message
     await session.sendAndWait({ prompt: systemPrompt });
     const response = await session.sendAndWait({ prompt: userPrompt });

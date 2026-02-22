@@ -8,9 +8,9 @@
 | :---: | :---: |
 | <img src="screenshots/darkmode.jpeg" width="400" /> | <img src="screenshots/lightmode.jpeg" width="400" /> |
 
-| AI Summary Generator | AI Todos |
+| Generate AI summaries for a given date range | AI Suggested TODOs |
 | :---: | :---: |
-| <img src="screenshots/summary.jpeg" width="400" /> | <img src="screenshots/ai-todos.png" width="400" /> |
+| <img src="screenshots/summary.png" width="400" /> | <img src="screenshots/ai-todos.png" width="400" /> |
 
 ## Features
 

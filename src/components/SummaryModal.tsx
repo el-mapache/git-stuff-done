@@ -15,10 +15,17 @@ interface SummaryModalProps {
   defaultDate: string;
 }
 
+const MODELS = [
+  { label: 'GPT 5.2', value: 'gpt-5.2' },
+  { label: 'GPT 4.1', value: 'gpt-4.1' },
+  { label: 'Claude 4.6 Sonnet', value: 'claude-sonnet-4.6' },
+];
+
 export default function SummaryModal({ isOpen, onClose, defaultDate, isDemo = false }: SummaryModalProps & { isDemo?: boolean }) {
   const [startDate, setStartDate] = useState(defaultDate);
   const [endDate, setEndDate] = useState(defaultDate);
   const [customPrompt, setCustomPrompt] = useState(DEFAULT_PROMPTS[0].value);
+  const [selectedModel, setSelectedModel] = useState(MODELS[0].value);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<string | null>(null);
@@ -53,6 +60,7 @@ export default function SummaryModal({ isOpen, onClose, defaultDate, isDemo = fa
           startDate,
           endDate,
           prompt: customPrompt,
+          model: selectedModel,
         }),
       });
 
@@ -159,17 +167,30 @@ export default function SummaryModal({ isOpen, onClose, defaultDate, isDemo = fa
             </div>
           </div>
 
-          {/* Prompt Selection */}
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Prompt Template</label>
-            <select
-              onChange={(e) => handlePromptChange(e.target.value)}
-              className="w-full rounded-xl border border-input bg-muted/50 px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/20 transition-all cursor-pointer"
-            >
-              {DEFAULT_PROMPTS.map((p, idx) => (
-                <option key={idx} value={p.value}>{p.label}</option>
-              ))}
-            </select>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Prompt Template</label>
+              <select
+                onChange={(e) => handlePromptChange(e.target.value)}
+                className="w-full rounded-xl border border-input bg-muted/50 px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/20 transition-all cursor-pointer"
+              >
+                {DEFAULT_PROMPTS.map((p, idx) => (
+                  <option key={idx} value={p.value}>{p.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">AI Model</label>
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                className="w-full rounded-xl border border-input bg-muted/50 px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/20 transition-all cursor-pointer"
+              >
+                {MODELS.map((m) => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Custom Prompt Textarea */}

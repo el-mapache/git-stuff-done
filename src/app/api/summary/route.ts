@@ -4,7 +4,7 @@ import { callCopilot } from '@/lib/copilot';
 
 export async function POST(req: Request) {
   try {
-    const { startDate, endDate, prompt } = await req.json();
+    const { startDate, endDate, prompt, model } = await req.json();
 
     if (!startDate || !endDate) {
       return NextResponse.json({ error: 'Missing start or end date' }, { status: 400 });
@@ -50,7 +50,7 @@ ${prompt || 'Summarize the key achievements and tasks worked on.'}
 ${fullLogContent}`;
 
     // 3. Call Copilot
-    const summary = await callCopilot(systemPrompt, userPrompt);
+    const summary = await callCopilot(systemPrompt, userPrompt, model);
 
     return NextResponse.json({ summary });
 
