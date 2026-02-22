@@ -10,7 +10,7 @@ type TodoItem = {
   createdAt: string;
 };
 
-export default function TodoList() {
+export default function TodoList({ date }: { date?: string }) {
   const [todos, setTodos] = useState<TodoItem[]>([]);
   const [input, setInput] = useState("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -68,7 +68,11 @@ export default function TodoList() {
     setSuggesting(true);
     setSuggestions([]);
     try {
-      const res = await fetch("/api/todos/suggest", { method: "POST" });
+      const res = await fetch("/api/todos/suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date }),
+      });
       const data = await res.json();
       setSuggestions(data.suggestions ?? []);
     } finally {

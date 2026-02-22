@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@octokit/rest": "^22.0.1",
+    "@uiw/react-md-editor": "^4.0.11",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",

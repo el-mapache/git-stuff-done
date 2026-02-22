@@ -1,16 +1,26 @@
-import { NextResponse } from "next/server";
-import { readLog, getTodayDate } from "@/lib/files";
+import { NextRequest, NextResponse } from "next/server";
+import { readRichLog, readLog } from "@/lib/files";
 import { getGitHubToken } from "@/lib/github";
 
 const MODELS_API = "https://models.inference.ai.azure.com/chat/completions";
 const MODEL = "gpt-4o";
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   console.log("[suggest] Generating TODO suggestions...");
-  const today = getTodayDate();
-  const log = await readLog(today);
+  const body = await request.json().catch(() => ({}));
+  const date = (body as { date?: string }).date;
+  if (!date) {
+    console.log("[suggest] No date provided");
+    return NextResponse.json({ suggestions: [] });
+  }
+
+  // Prefer enriched log, fall back to raw
+  let log = await readRichLog(date);
   if (!log.trim()) {
-    console.log("[suggest] No log content for", today, "— returning empty suggestions");
+    log = await readLog(date);
+  }
+  if (!log.trim()) {
+    console.log("[suggest] No log content for", date, "— returning empty suggestions");
     return NextResponse.json({ suggestions: [] });
   }
 

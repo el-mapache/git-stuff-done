@@ -6,13 +6,14 @@ import remarkGfm from 'remark-gfm';
 
 interface RichWorkLogProps {
   date?: string;
+  refreshKey?: number;
 }
 
 function getTodayLocal(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
 }
 
-export default function RichWorkLog({ date }: RichWorkLogProps) {
+export default function RichWorkLog({ date, refreshKey }: RichWorkLogProps) {
   const currentDate = date ?? getTodayLocal();
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(true);
@@ -29,7 +30,7 @@ export default function RichWorkLog({ date }: RichWorkLogProps) {
   useEffect(() => {
     setLoading(true);
     fetchRichLog();
-  }, [fetchRichLog]);
+  }, [fetchRichLog, refreshKey]);
 
   const handleEnrich = async () => {
     setEnriching(true);

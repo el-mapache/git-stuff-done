@@ -1,25 +1,28 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
+
+const MDEditor = dynamic(() => import('@uiw/react-md-editor'), { ssr: false });
 
 type SaveStatus = 'idle' | 'unsaved' | 'saving' | 'saved';
 
 interface RawWorkLogProps {
   date?: string;
+  onContentSaved?: () => void;
 }
 
 function getTodayLocal(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
 }
 
-export default function RawWorkLog({ date }: RawWorkLogProps) {
+export default function RawWorkLog({ date, onContentSaved }: RawWorkLogProps) {
   const currentDate = date ?? getTodayLocal();
   const [content, setContent] = useState('');
   const [status, setStatus] = useState<SaveStatus>('idle');
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestContentRef = useRef(content);
 
-  // Fetch log on mount or when date changes
   useEffect(() => {
     let cancelled = false;
     async function fetchLog() {
@@ -44,13 +47,14 @@ export default function RawWorkLog({ date }: RawWorkLogProps) {
         body: JSON.stringify({ date: currentDate, content: text }),
       });
       setStatus('saved');
+      onContentSaved?.();
     } catch {
       setStatus('unsaved');
     }
-  }, [currentDate]);
+  }, [currentDate, onContentSaved]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const text = e.target.value;
+  const handleChange = (value?: string) => {
+    const text = value ?? '';
     setContent(text);
     latestContentRef.current = text;
     setStatus('unsaved');
@@ -61,7 +65,6 @@ export default function RawWorkLog({ date }: RawWorkLogProps) {
     }, 1000);
   };
 
-  // Cleanup timer on unmount
   useEffect(() => {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
@@ -94,13 +97,17 @@ export default function RawWorkLog({ date }: RawWorkLogProps) {
           </span>
         )}
       </div>
-      <textarea
-        className="flex-1 w-full resize-none bg-white p-3 font-mono text-sm text-zinc-800 placeholder-zinc-400 focus:outline-none rounded-b-lg"
-        value={content}
-        onChange={handleChange}
-        placeholder="Start typing your work log... ✏️"
-        spellCheck={false}
-      />
+      <div className="flex-1 overflow-auto rounded-b-lg" data-color-mode="light">
+        <MDEditor
+          value={content}
+          onChange={handleChange}
+          preview="edit"
+          hideToolbar={false}
+          height="100%"
+          visibleDragbar={false}
+          style={{ background: 'white', minHeight: '100%' }}
+        />
+      </div>
     </div>
   );
 }

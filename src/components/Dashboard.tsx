@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import RawWorkLog from './RawWorkLog';
 import RichWorkLog from './RichWorkLog';
 import TodoList from './TodoList';
@@ -23,6 +23,24 @@ export default function Dashboard() {
   }
 
   const isToday = date === todayISO();
+  const [enrichKey, setEnrichKey] = useState(0);
+  const enrichTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const triggerEnrichDebounced = useCallback(() => {
+    if (enrichTimerRef.current) clearTimeout(enrichTimerRef.current);
+    enrichTimerRef.current = setTimeout(() => {
+      console.log("[dashboard] Auto-enriching after save...");
+      fetch('/api/enrich', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date }),
+      }).then(() => setEnrichKey((k) => k + 1));
+    }, 3000);
+  }, [date]);
+
+  useEffect(() => {
+    return () => { if (enrichTimerRef.current) clearTimeout(enrichTimerRef.current); };
+  }, []);
 
   const [showSettings, setShowSettings] = useState(false);
   const [ignoredRepos, setIgnoredRepos] = useState<string[]>([]);
@@ -173,13 +191,13 @@ export default function Dashboard() {
       {/* Grid */}
       <div className="grid min-h-0 flex-1 grid-cols-[3fr_2fr] grid-rows-2 gap-3 p-3">
         <div className="overflow-auto rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-          <RawWorkLog date={date} />
+          <RawWorkLog date={date} onContentSaved={triggerEnrichDebounced} />
         </div>
         <div className="overflow-auto rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-          <TodoList />
+          <TodoList date={date} />
         </div>
         <div className="overflow-auto rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-          <RichWorkLog date={date} />
+          <RichWorkLog date={date} refreshKey={enrichKey} />
         </div>
         <div className="overflow-auto rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
           <GitHubNotifications key={notifsKey} />
