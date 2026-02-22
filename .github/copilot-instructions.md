@@ -1,6 +1,6 @@
 # Copilot Instructions
 
-This is LogPilot — a personal daily work log dashboard built with Next.js 16, TypeScript, and Tailwind CSS v4.
+This is git-stuff-done — a personal daily work log dashboard built with Next.js 16, TypeScript, and Tailwind CSS v4.
 
 ## Architecture
 - 4-panel dashboard: Raw Work Log editor, Enriched Work Log viewer, TODO list, GitHub Notifications

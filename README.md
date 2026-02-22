@@ -1,6 +1,16 @@
-# LogPilot ✨
+# git-stuff-done ✨
 
-A personal daily work log dashboard that helps you track what you're doing, enrich your notes with AI, manage TODOs, and stay on top of GitHub activity.
+**git-stuff-done** is your personal developer dashboard designed to keep you in the flow. It combines a distraction-free markdown editor for your daily work logs with AI superpowers. Automatically track your work, enrich your notes with context from GitHub, manage your PRs and notifications, and generate standup summaries—all without leaving your local environment. It's like a flight recorder for your engineering day.
+
+## Screenshots
+
+| Dark Mode | Light Mode |
+| :---: | :---: |
+| <img src="screenshots/darkmode.jpeg" width="400" /> | <img src="screenshots/lightmode.jpeg" width="400" /> |
+
+| AI Summary Generator |
+| :---: |
+| <img src="screenshots/summary.jpeg" width="800" /> |
 
 ## Features
 
@@ -29,8 +39,8 @@ A personal daily work log dashboard that helps you track what you're doing, enri
 
    Click **Fork** on GitHub to create your own copy of this repo, then clone it:
    ```bash
-   git clone https://github.com/<your-username>/logpilot logpilot
-   cd logpilot
+   git clone https://github.com/<your-username>/git-stuff-done git-stuff-done
+   cd git-stuff-done
    npm install
    ```
 
@@ -50,19 +60,19 @@ A personal daily work log dashboard that helps you track what you're doing, enri
    ```
    Edit `.env.local`:
    - `GITHUB_READ_TOKEN` — the PAT from step 2
-   - `NEXT_PUBLIC_GITHUB_ORG` — your GitHub org name (filters notifications, PRs, links)
-   - `LOGPILOT_DATA_DIR` — (recommended) path to a separate git repo for storing logs/TODOs
+   - `GITHUB_ORG` — your GitHub org name (filters notifications, PRs, links)
+   - `GIT_STUFF_DONE_DATA_DIR` — (recommended) path to a separate git repo for storing logs/TODOs
 
 4. **Set up a separate repo for your logs (recommended):**
 
-   Without `LOGPILOT_DATA_DIR`, logs and TODOs are stored inside the app repo itself (your fork). To keep them separate:
+   Without `GIT_STUFF_DONE_DATA_DIR`, logs and TODOs are stored inside the app repo itself (your fork). To keep them separate:
 
    Create a new private repo on GitHub for your logs, then clone it:
    ```bash
    git clone https://github.com/<your-username>/my-work-logs ~/my-work-logs
    ```
 
-   Set `LOGPILOT_DATA_DIR=~/my-work-logs` in `.env.local`. The directory must be a git repo with a remote for auto-push to work.
+   Set `GIT_STUFF_DONE_DATA_DIR=~/my-work-logs` in `.env.local`. The directory must be a git repo with a remote for auto-push to work.
 
 5. **Run the dashboard:**
    ```bash
@@ -74,9 +84,9 @@ A personal daily work log dashboard that helps you track what you're doing, enri
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `NEXT_PUBLIC_GITHUB_ORG` | *(none)* | GitHub org to filter notifications, PRs, and links |
+| `GITHUB_ORG` | *(none)* | GitHub org to filter notifications, PRs, and links |
 | `GITHUB_READ_TOKEN` | *(falls back to `gh auth token`)* | Read-only GitHub token ([create one](https://github.com/settings/personal-access-tokens/new) with Issues, PRs, and Notifications read access) |
-| `LOGPILOT_DATA_DIR` | `./` (app dir) | Path to a git repo where `logs/` and `data/` will be stored |
+| `GIT_STUFF_DONE_DATA_DIR` | `./` (app dir) | Path to a git repo where `logs/` and `data/` will be stored |
 
 ## How It Works
 

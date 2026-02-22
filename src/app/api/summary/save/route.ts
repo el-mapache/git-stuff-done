@@ -15,13 +15,13 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Invalid filename' }, { status: 400 });
     }
 
-    await writeSummary(filename, content);
+    const savedFilename = await writeSummary(filename, content);
     
     // Commit and push
     // We pass a specific message for the commit
-    const commitRes = commitWorkLog(`docs(summary): add ${filename}`);
+    const commitRes = commitWorkLog(`docs(summary): add ${savedFilename}`);
 
-    return NextResponse.json({ success: true, path: filename, committed: commitRes.committed });
+    return NextResponse.json({ success: true, path: savedFilename, committed: commitRes.committed });
   } catch (error) {
     console.error('Failed to save summary:', error);
     return NextResponse.json({ error: 'Failed to save summary' }, { status: 500 });

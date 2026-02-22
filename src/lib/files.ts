@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir } from "fs/promises";
+import { readFile, writeFile, mkdir, access } from "fs/promises";
 import path from "path";
 
 // --- Types ---
@@ -25,7 +25,7 @@ export function isValidDate(date: string): boolean {
 }
 
 export function getDataRoot(): string {
-  const dir = process.env.LOGPILOT_DATA_DIR;
+  const dir = process.env.GIT_STUFF_DONE_DATA_DIR;
   if (!dir) return process.cwd();
   // Expand ~ to home directory
   if (dir.startsWith("~/") || dir === "~") {
@@ -99,9 +99,28 @@ export async function writeRichLog(
 
 // --- Summary I/O ---
 
-export async function writeSummary(filename: string, content: string): Promise<void> {
+export async function writeSummary(filename: string, content: string): Promise<string> {
   await ensureDirs();
-  await writeFile(getSummaryPath(filename), content, "utf-8");
+  
+  let finalFilename = filename;
+  let counter = 1;
+  const ext = path.extname(filename);
+  const base = path.basename(filename, ext);
+
+  while (true) {
+    try {
+      await access(getSummaryPath(finalFilename));
+      // File exists, try next increment
+      finalFilename = `${base}-${counter}${ext}`;
+      counter++;
+    } catch {
+      // File does not exist, we can use this name
+      break;
+    }
+  }
+
+  await writeFile(getSummaryPath(finalFilename), content, "utf-8");
+  return finalFilename;
 }
 
 // --- Todo I/O ---

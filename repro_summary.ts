@@ -5,7 +5,7 @@ import path from 'path';
 
 async function main() {
   console.log('Current working directory:', process.cwd());
-  console.log('LOGPILOT_DATA_DIR:', process.env.LOGPILOT_DATA_DIR);
+  console.log('GIT_STUFF_DONE_DATA_DIR:', process.env.GIT_STUFF_DONE_DATA_DIR);
 
   const testFilename = 'test-summary.md';
   const testContent = '# Test Summary\n\nThis is a test summary.';
@@ -17,7 +17,7 @@ async function main() {
 
     // Check if file exists
     // We need to know where it wrote to. Based on logic, it should be in process.cwd()/summaries/test-summary.md
-    // unless LOGPILOT_DATA_DIR is set.
+    // unless GIT_STUFF_DONE_DATA_DIR is set.
     
     // We can't import getSummaryPath easily without exporting it or duplicating logic, 
     // but writeSummary calls ensureDirs which uses summariesDir.
