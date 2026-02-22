@@ -2,11 +2,13 @@
 
 **git-stuff-done** is your personal developer dashboard designed to keep you in the flow. It combines a distraction-free markdown editor for your daily work logs with AI superpowers. Automatically track your work, enrich your notes with context from GitHub, manage your PRs and notifications, and generate standup summaries—all without leaving your local environment. It's like a flight recorder for your engineering day.
 
-## Screenshots
+| Light Mode |
+| :---: |
+| <img src="screenshots/lightmode.jpeg" width="800" /> |
 
-| Dark Mode | Light Mode |
-| :---: | :---: |
-| <img src="screenshots/darkmode.jpeg" width="400" /> | <img src="screenshots/lightmode.jpeg" width="400" /> |
+| Dark Mode  |
+| :---: |
+| <img src="screenshots/darkmode.jpeg" width="800" /> |
 
 | Generate AI summaries for a given date range | AI Suggested TODOs |
 | :---: | :---: |
@@ -94,13 +96,6 @@
 - **AI Enrichment:** Click **🪄 Enrich** in the log panel. Uses `@github/copilot-sdk` (via Copilot CLI) to resolve GitHub links to issue/PR titles and expand bullet points. Saves the enriched result back to the same file.
 - **Auto-commit:** Every hour while the app is running, changes to `logs/`, `summaries/`, and `data/` are committed and pushed. You can also trigger a manual commit via the 🚀 button.
 - **Timezone:** All dates use America/Los_Angeles (Pacific Time). Edit `getTodayDate()` in `src/lib/files.ts` to change.
-
-## Security
-
-- **Read-only GitHub access:** For GitHub API calls (issues, PRs, notifications), use a fine-grained PAT with read-only permissions via `GITHUB_READ_TOKEN`. This ensures the app can never modify your repos.
-- **No shell injection:** All subprocess calls use `execFileSync` (array arguments, no shell interpretation).
-- **Path traversal protection:** All date parameters are validated against `YYYY-MM-DD` format.
-- **Local only:** The app runs on `localhost` with no authentication. Do not expose it to the internet.
 
 ## Tech Stack
 
