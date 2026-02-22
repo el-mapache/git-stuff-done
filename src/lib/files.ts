@@ -39,10 +39,15 @@ function dataRoot(): string {
 }
 
 const logsDir = () => path.join(dataRoot(), "logs");
+const summariesDir = () => path.join(dataRoot(), "summaries");
 const dataDir = () => path.join(dataRoot(), "data");
 
 export function getLogPath(date: string): string {
   return path.join(logsDir(), `${date}.md`);
+}
+
+export function getSummaryPath(filename: string): string {
+  return path.join(summariesDir(), filename);
 }
 
 export function getRichLogPath(date: string): string {
@@ -57,6 +62,7 @@ export function getTodayDate(): string {
 
 async function ensureDirs(): Promise<void> {
   await mkdir(logsDir(), { recursive: true });
+  await mkdir(summariesDir(), { recursive: true });
   await mkdir(dataDir(), { recursive: true });
 }
 
@@ -89,6 +95,13 @@ export async function writeRichLog(
 ): Promise<void> {
   await ensureDirs();
   await writeFile(getRichLogPath(date), content, "utf-8");
+}
+
+// --- Summary I/O ---
+
+export async function writeSummary(filename: string, content: string): Promise<void> {
+  await ensureDirs();
+  await writeFile(getSummaryPath(filename), content, "utf-8");
 }
 
 // --- Todo I/O ---

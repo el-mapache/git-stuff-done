@@ -20,6 +20,7 @@ export default function SummaryModal({ isOpen, onClose, defaultDate }: SummaryMo
   const [endDate, setEndDate] = useState(defaultDate);
   const [customPrompt, setCustomPrompt] = useState(DEFAULT_PROMPTS[0].value);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,6 +53,44 @@ export default function SummaryModal({ isOpen, onClose, defaultDate }: SummaryMo
       setError('An error occurred while generating the summary.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const saveToRepo = async () => {
+    if (!result) return;
+    setSaving(true);
+    setError(null);
+
+    try {
+        // Generate filename: YYYY-MM-DD-{slug}.md
+        // Find which prompt was selected by matching value
+        const selectedPrompt = DEFAULT_PROMPTS.find(p => p.value === customPrompt);
+        
+        let slug = 'custom-summary';
+        if (selectedPrompt) {
+            slug = selectedPrompt.label.toLowerCase().replace(/\s+/g, '-');
+        } else {
+            // If custom prompt text doesn't match a preset exactly, it's custom
+             slug = 'custom-summary';
+        }
+
+        const filename = `${startDate}-${slug}.md`;
+
+        const res = await fetch('/api/summary/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename, content: result }),
+        });
+
+        if (!res.ok) throw new Error('Failed to save summary');
+        
+        // Show success (could be a toast, but using simple alert/state for now)
+        alert(`Saved to summaries/${filename}`);
+    } catch (err) {
+        console.error(err);
+        setError('Failed to save summary to repository.');
+    } finally {
+        setSaving(false);
     }
   };
 
@@ -164,6 +203,13 @@ export default function SummaryModal({ isOpen, onClose, defaultDate }: SummaryMo
                   className="rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:shadow-sm border border-transparent hover:border-border transition-all"
                 >
                   Download .md
+                </button>
+                <button
+                  onClick={saveToRepo}
+                  disabled={saving}
+                  className="rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:shadow-sm border border-transparent hover:border-border transition-all disabled:opacity-50"
+                >
+                  {saving ? 'Saving...' : 'Save to Repo'}
                 </button>
               </>
             )}

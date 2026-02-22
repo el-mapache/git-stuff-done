@@ -6,8 +6,14 @@ export function commitWorkLog(
 ): { committed: boolean; message: string } {
   const cwd = getDataRoot();
 
-  // Stage logs/ and data/ directories
-  execFileSync("git", ["add", "logs/", "data/"], { cwd });
+  // Stage logs/, summaries/ and data/ directories
+  // Note: execFileSync args are not shell-expanded, so we add directories individually
+  // But git add accepts multiple pathspecs
+  try {
+      execFileSync("git", ["add", "logs", "data", "summaries"], { cwd });
+  } catch (e) {
+      // Ignore if directories don't exist yet (git add might warn)
+  }
 
   // Check if there is anything staged to commit
   const status = execFileSync("git", ["diff", "--cached", "--name-only"], {
