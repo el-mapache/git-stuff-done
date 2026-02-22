@@ -74,7 +74,7 @@ export default function SummaryModal({ isOpen, onClose, defaultDate }: SummaryMo
              slug = 'custom-summary';
         }
 
-        const filename = `${startDate}-${slug}.md`;
+        const filename = `${endDate}-${slug}.md`;
 
         const res = await fetch('/api/summary/save', {
             method: 'POST',
