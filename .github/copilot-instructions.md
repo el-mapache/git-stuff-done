@@ -14,3 +14,6 @@ This is LogPilot — a personal daily work log dashboard built with Next.js 16, 
 - API routes are in `src/app/api/`
 - Shared utilities in `src/lib/`
 - Client components use `'use client'` directive
+
+## Custom Instructions
+- Always update the README.md file when you add or modify features to keep the documentation in sync with the code.
