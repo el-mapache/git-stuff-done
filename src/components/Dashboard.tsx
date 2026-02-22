@@ -8,7 +8,7 @@ import GitHubNotifications from './GitHubNotifications';
 import { GITHUB_ORG } from '@/lib/constants';
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
 }
 
 export default function Dashboard() {
@@ -17,9 +17,9 @@ export default function Dashboard() {
   const [date, setDate] = useState(todayISO());
 
   function shiftDate(days: number) {
-    const d = new Date(date + 'T00:00:00');
+    const d = new Date(date + 'T12:00:00');
     d.setDate(d.getDate() + days);
-    setDate(d.toISOString().slice(0, 10));
+    setDate(d.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' }));
   }
 
   const isToday = date === todayISO();
@@ -79,7 +79,8 @@ export default function Dashboard() {
     }
   }
 
-  const displayDate = new Date(date + 'T00:00:00').toLocaleDateString('en-US', {
+  const displayDate = new Date(date + 'T12:00:00').toLocaleDateString('en-US', {
+    timeZone: 'America/Los_Angeles',
     weekday: 'long',
     year: 'numeric',
     month: 'long',
