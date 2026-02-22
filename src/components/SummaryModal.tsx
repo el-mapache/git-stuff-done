@@ -84,8 +84,9 @@ export default function SummaryModal({ isOpen, onClose, defaultDate }: SummaryMo
 
         if (!res.ok) throw new Error('Failed to save summary');
         
-        // Show success (could be a toast, but using simple alert/state for now)
-        alert(`Saved to summaries/${filename}`);
+        const data = await res.json();
+        const msg = data.committed ? 'Saved and pushed to repo!' : 'Saved to disk (commit skipped/failed).';
+        alert(`${msg}\nFile: summaries/${filename}`);
     } catch (err) {
         console.error(err);
         setError('Failed to save summary to repository.');
@@ -209,7 +210,7 @@ export default function SummaryModal({ isOpen, onClose, defaultDate }: SummaryMo
                   disabled={saving}
                   className="rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:shadow-sm border border-transparent hover:border-border transition-all disabled:opacity-50"
                 >
-                  {saving ? 'Saving...' : 'Save to Repo'}
+                  {saving ? 'Committing...' : 'Save & Commit'}
                 </button>
               </>
             )}

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { writeSummary } from '@/lib/files';
+import { commitWorkLog } from '@/lib/git';
 
 export async function POST(req: Request) {
   try {
@@ -15,8 +16,12 @@ export async function POST(req: Request) {
     }
 
     await writeSummary(filename, content);
+    
+    // Commit and push
+    // We pass a specific message for the commit
+    const commitRes = commitWorkLog(`docs(summary): add ${filename}`);
 
-    return NextResponse.json({ success: true, path: filename });
+    return NextResponse.json({ success: true, path: filename, committed: commitRes.committed });
   } catch (error) {
     console.error('Failed to save summary:', error);
     return NextResponse.json({ error: 'Failed to save summary' }, { status: 500 });
