@@ -1,16 +1,16 @@
-import { execSync } from "child_process";
-import { getTodayDate } from "./files";
+import { execFileSync } from "child_process";
+import { getTodayDate, getDataRoot } from "./files";
 
 export function commitWorkLog(
   message?: string,
 ): { committed: boolean; message: string } {
-  const cwd = process.cwd();
+  const cwd = getDataRoot();
 
   // Stage logs/ and data/ directories
-  execSync("git add logs/ data/", { cwd });
+  execFileSync("git", ["add", "logs/", "data/"], { cwd });
 
   // Check if there is anything staged to commit
-  const status = execSync("git diff --cached --name-only", {
+  const status = execFileSync("git", ["diff", "--cached", "--name-only"], {
     cwd,
     encoding: "utf-8",
   }).trim();
@@ -23,11 +23,11 @@ export function commitWorkLog(
   const timestamp = now.toISOString().slice(0, 16).replace("T", " ");
   const commitMessage = message ?? `Update work log ${timestamp}`;
 
-  execSync(`git commit -m ${JSON.stringify(commitMessage)}`, { cwd });
+  execFileSync("git", ["commit", "-m", commitMessage], { cwd });
 
   // Push to remote if configured
   try {
-    execSync("git push", { cwd });
+    execFileSync("git", ["push"], { cwd });
   } catch {
     // Push may fail if no remote is set; commit still succeeded
   }

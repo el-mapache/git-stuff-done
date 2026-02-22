@@ -11,7 +11,11 @@ export async function PUT(request: NextRequest) {
   const config = await readConfig();
 
   if (Array.isArray(body.ignoredRepos)) {
-    config.ignoredRepos = body.ignoredRepos.map((r: string) => r.trim()).filter(Boolean);
+    config.ignoredRepos = body.ignoredRepos
+      .filter((r: unknown) => typeof r === "string")
+      .map((r: string) => r.trim().slice(0, 200))
+      .filter(Boolean)
+      .slice(0, 100);
   }
 
   await writeConfig(config);

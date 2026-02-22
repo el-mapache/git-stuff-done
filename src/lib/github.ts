@@ -1,6 +1,6 @@
 import { GITHUB_ORG } from './constants';
 import { Octokit } from '@octokit/rest';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { readConfig } from './files';
 
 // --- Token retrieval (cached per process) ---
@@ -9,15 +9,21 @@ let cachedToken: string | null = null;
 
 export async function getGitHubToken(): Promise<string> {
   if (cachedToken) return cachedToken;
+  // Prefer explicit read-only token, then GH_TOKEN, then gh CLI
+  const envToken = process.env.GITHUB_READ_TOKEN || process.env.GH_TOKEN;
+  if (envToken) {
+    cachedToken = envToken.trim();
+    return cachedToken;
+  }
   try {
-    cachedToken = execSync('gh auth token', { encoding: 'utf-8' }).trim();
+    cachedToken = execFileSync('gh', ['auth', 'token'], { encoding: 'utf-8' }).trim();
   } catch {
     throw new Error(
-      'Failed to retrieve GitHub token. Ensure `gh` CLI is installed and authenticated.',
+      'Failed to retrieve GitHub token. Set GITHUB_READ_TOKEN env var or ensure `gh` CLI is installed and authenticated.',
     );
   }
   if (!cachedToken) {
-    throw new Error('gh auth token returned an empty string.');
+    throw new Error('GitHub token is empty.');
   }
   return cachedToken;
 }
@@ -123,6 +129,75 @@ export async function extractGitHubUrls(markdown: string): Promise<string[]> {
   });
 }
 
+// --- My PRs ---
+
+export type MyPullRequest = {
+  id: number;
+  number: number;
+  title: string;
+  url: string;
+  repoFullName: string;
+  state: string;
+  draft: boolean;
+  createdAt: string;
+  updatedAt: string;
+  additions: number;
+  deletions: number;
+  reviewDecision: string | null;
+};
+
+export async function fetchMyPRs(): Promise<MyPullRequest[]> {
+  const octokit = await getOctokit();
+  const config = await readConfig();
+  const { data: userData } = await octokit.users.getAuthenticated();
+  const user = userData.login;
+
+  const { data } = await octokit.search.issuesAndPullRequests({
+    q: `is:pr is:open author:${user} org:${GITHUB_ORG}`,
+    sort: 'updated',
+    order: 'desc',
+    per_page: 30,
+  });
+
+  const prs = await Promise.all(
+    data.items
+      .filter((item) => {
+        const repo = item.repository_url.split('/').pop() ?? '';
+        return !config.ignoredRepos.includes(repo);
+      })
+      .map(async (item) => {
+        const urlParts = item.repository_url.split('/');
+        const owner = urlParts[urlParts.length - 2];
+        const repo = urlParts[urlParts.length - 1];
+        let additions = 0, deletions = 0, draft = false;
+        try {
+          const { data: pr } = await octokit.pulls.get({
+            owner, repo, pull_number: item.number,
+          });
+          additions = pr.additions;
+          deletions = pr.deletions;
+          draft = pr.draft ?? false;
+        } catch { /* ignore */ }
+        return {
+          id: item.id,
+          number: item.number,
+          title: item.title,
+          url: item.html_url,
+          repoFullName: `${owner}/${repo}`,
+          state: item.state,
+          draft,
+          createdAt: item.created_at,
+          updatedAt: item.updated_at,
+          additions,
+          deletions,
+          reviewDecision: null,
+        };
+      }),
+  );
+
+  return prs;
+}
+
 // --- Notifications ---
 
 export type GitHubNotification = {
@@ -135,6 +210,14 @@ export type GitHubNotification = {
   updatedAt: string;
   unread: boolean;
 };
+
+const RELEVANT_REASONS = new Set([
+  'review_requested',
+  'mention',
+  'assign',
+  'author',
+  'comment',
+]);
 
 export async function fetchNotifications(
   options?: { participating?: boolean },
@@ -150,7 +233,8 @@ export async function fetchNotifications(
   const filtered = data
     .filter((n) => n.repository.owner.login === GITHUB_ORG)
     .filter((n) => !config.ignoredRepos.includes(n.repository.name))
-    .filter((n) => n.subject.type === 'Issue' || n.subject.type === 'PullRequest');
+    .filter((n) => n.subject.type === 'Issue' || n.subject.type === 'PullRequest')
+    .filter((n) => RELEVANT_REASONS.has(n.reason));
 
   // Fetch subject state to filter to open items only
   const withState = await Promise.all(

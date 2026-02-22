@@ -17,8 +17,29 @@ export type AppConfig = {
 
 // --- Paths ---
 
-const logsDir = () => path.join(process.cwd(), "logs");
-const dataDir = () => path.join(process.cwd(), "data");
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Validate that a date string is a safe YYYY-MM-DD format (prevents path traversal). */
+export function isValidDate(date: string): boolean {
+  return DATE_RE.test(date);
+}
+
+export function getDataRoot(): string {
+  const dir = process.env.LOGPILOT_DATA_DIR;
+  if (!dir) return process.cwd();
+  // Expand ~ to home directory
+  if (dir.startsWith("~/") || dir === "~") {
+    return path.join(process.env.HOME || "/", dir.slice(1));
+  }
+  return dir;
+}
+
+function dataRoot(): string {
+  return getDataRoot();
+}
+
+const logsDir = () => path.join(dataRoot(), "logs");
+const dataDir = () => path.join(dataRoot(), "data");
 
 export function getLogPath(date: string): string {
   return path.join(logsDir(), `${date}.md`);

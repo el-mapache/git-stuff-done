@@ -9,12 +9,14 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@github/copilot-sdk": "^0.1.25",
     "@octokit/rest": "^22.0.1",
-    "@uiw/react-md-editor": "^4.0.11",
     "next": "16.1.6",
+    "next-themes": "^0.4.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-markdown": "^10.1.0",
+    "react-resizable-panels": "^4.6.5",
     "remark-gfm": "^4.0.1"
   },
   "devDependencies": {

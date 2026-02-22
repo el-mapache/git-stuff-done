@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTodayDate, readLog, writeRichLog } from '@/lib/files';
+import { getTodayDate, readLog, writeLog, isValidDate } from '@/lib/files';
 import { enrichWorkLog } from '@/lib/copilot';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
     const date = (body as { date?: string }).date || getTodayDate();
+    if (!isValidDate(date)) {
+      return NextResponse.json({ error: 'Invalid date format' }, { status: 400 });
+    }
     console.log("[enrich] Enriching log for", date);
 
     const raw = await readLog(date);
@@ -19,7 +22,8 @@ export async function POST(request: NextRequest) {
 
     console.log("[enrich] Raw log:", raw.length, "chars — calling AI...");
     const content = await enrichWorkLog(raw);
-    await writeRichLog(date, content);
+    // Write enriched content back to the same log file
+    await writeLog(date, content);
     console.log("[enrich] Done — enriched log:", content.length, "chars");
 
     return NextResponse.json({ success: true, content });
