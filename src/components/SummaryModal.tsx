@@ -1,0 +1,182 @@
+'use client';
+
+import { useState } from 'react';
+
+const DEFAULT_PROMPTS = [
+  { label: 'Daily Standup', value: 'Summarize my work for a daily standup meeting. Focus on what was completed, what is in progress, and any blockers.' },
+  { label: 'Weekly Report', value: 'Create a weekly report summarizing key achievements, PRs merged, and tasks completed. Group by project or topic.' },
+  { label: 'Detailed Changelog', value: 'List all technical changes, bug fixes, and refactors in a changelog format.' },
+  { label: 'Custom', value: '' },
+];
+
+interface SummaryModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  defaultDate: string;
+}
+
+export default function SummaryModal({ isOpen, onClose, defaultDate }: SummaryModalProps) {
+  const [startDate, setStartDate] = useState(defaultDate);
+  const [endDate, setEndDate] = useState(defaultDate);
+  const [customPrompt, setCustomPrompt] = useState(DEFAULT_PROMPTS[0].value);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!isOpen) return null;
+
+  const handlePromptChange = (val: string) => {
+    setCustomPrompt(val);
+  };
+
+  const generateSummary = async () => {
+    setLoading(true);
+    setError(null);
+    setResult(null);
+
+    try {
+      const res = await fetch('/api/summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startDate,
+          endDate,
+          prompt: customPrompt,
+        }),
+      });
+
+      if (!res.ok) throw new Error('Failed to generate summary');
+      const data = await res.json();
+      setResult(data.summary);
+    } catch (err) {
+      setError('An error occurred while generating the summary.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copyToClipboard = () => {
+    if (result) navigator.clipboard.writeText(result);
+  };
+
+  const downloadMarkdown = () => {
+    if (!result) return;
+    const blob = new Blob([result], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `summary-${startDate}-to-${endDate}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+      <div className="w-full max-w-2xl rounded-2xl bg-popover shadow-xl ring-1 ring-border max-h-[90vh] flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-border px-6 py-4 bg-popover/50 backdrop-blur-sm sticky top-0 z-10">
+          <h2 className="text-lg font-semibold text-popover-foreground">Generate Summary</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-muted">✕</button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+          {/* Date Range */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Start Date</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full rounded-xl border border-input bg-muted/50 px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/20 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">End Date</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full rounded-xl border border-input bg-muted/50 px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/20 transition-all"
+              />
+            </div>
+          </div>
+
+          {/* Prompt Selection */}
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Prompt Template</label>
+            <select
+              onChange={(e) => handlePromptChange(e.target.value)}
+              className="w-full rounded-xl border border-input bg-muted/50 px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/20 transition-all cursor-pointer"
+            >
+              {DEFAULT_PROMPTS.map((p, idx) => (
+                <option key={idx} value={p.value}>{p.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Custom Prompt Textarea */}
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Instructions</label>
+            <textarea
+              value={customPrompt}
+              onChange={(e) => setCustomPrompt(e.target.value)}
+              className="w-full h-32 rounded-xl border border-input bg-muted/50 px-3 py-2 text-sm text-foreground placeholder-muted-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/20 resize-none transition-all"
+              placeholder="Enter custom instructions for the summary..."
+            />
+          </div>
+
+          {/* Result Area */}
+          {result && (
+            <div className="mt-6 pt-6 border-t border-border">
+              <label className="block text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">Generated Summary</label>
+              <textarea
+                readOnly
+                value={result}
+                className="w-full h-64 rounded-xl border border-input bg-muted px-4 py-3 text-sm text-foreground font-mono outline-none resize-none"
+              />
+            </div>
+          )}
+
+          {error && (
+            <div className="text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 p-4 rounded-xl border border-red-100 dark:border-red-900/50 flex items-center gap-2">
+              <span>⚠️</span> {error}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="border-t border-border px-6 py-4 flex justify-between items-center bg-popover/80 backdrop-blur-sm sticky bottom-0 z-10">
+          <div className="flex gap-2">
+            {result && (
+              <>
+                <button
+                  onClick={copyToClipboard}
+                  className="rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:shadow-sm border border-transparent hover:border-border transition-all"
+                >
+                  Copy
+                </button>
+                <button
+                  onClick={downloadMarkdown}
+                  className="rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:shadow-sm border border-transparent hover:border-border transition-all"
+                >
+                  Download .md
+                </button>
+              </>
+            )}
+          </div>
+          <button
+            onClick={generateSummary}
+            disabled={loading}
+            className="rounded-xl bg-gradient-to-r from-primary to-accent-foreground px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow-md shadow-primary/20 transition-all hover:shadow-lg hover:shadow-primary/30 hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
+          >
+            {loading ? 'Generating...' : 'Generate Summary'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

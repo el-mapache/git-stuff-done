@@ -27,16 +27,16 @@ function timeAgo(dateString: string): string {
 }
 
 const reasonColors: Record<string, string> = {
-  review_requested: 'bg-violet-100 text-violet-600',
-  mention: 'bg-blue-100 text-blue-600',
-  assign: 'bg-emerald-100 text-emerald-600',
-  subscribed: 'bg-zinc-100 text-zinc-500',
-  author: 'bg-amber-100 text-amber-600',
-  ci_activity: 'bg-orange-100 text-orange-600',
+  review_requested: 'bg-violet-100 text-violet-500 dark:bg-violet-900/50 dark:text-violet-200',
+  mention: 'bg-sky-100 text-sky-500 dark:bg-sky-900/50 dark:text-sky-200',
+  assign: 'bg-emerald-100 text-emerald-500 dark:bg-emerald-900/50 dark:text-emerald-200',
+  subscribed: 'bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-400',
+  author: 'bg-amber-100 text-amber-500 dark:bg-amber-900/50 dark:text-amber-200',
+  ci_activity: 'bg-orange-100 text-orange-400 dark:bg-orange-900/50 dark:text-orange-200',
 };
 
 function reasonBadge(reason: string) {
-  const colors = reasonColors[reason] ?? 'bg-gray-500/20 text-gray-400';
+  const colors = reasonColors[reason] ?? 'bg-muted text-muted-foreground';
   const label = reason.replace(/_/g, ' ');
   return (
     <span
@@ -87,15 +87,15 @@ export default function GitHubNotifications() {
   }, [refresh]);
 
   return (
-    <div className="flex h-full flex-col rounded-xl border border-zinc-200 bg-white text-zinc-800">
+    <div className="flex h-full flex-col rounded-xl text-foreground">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-zinc-200 bg-zinc-50 rounded-t-xl px-4 py-3">
-        <h2 className="text-sm font-semibold tracking-wide text-zinc-600">
-          🔔 GitHub Notifications
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <h2 className="text-sm font-semibold tracking-wide text-amber-500">
+          🔔 Notifications
         </h2>
         <button
           onClick={refresh}
-          className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
+          className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-amber-50 hover:text-amber-500 dark:hover:bg-amber-900/30"
           aria-label="Refresh notifications"
         >
           <svg
@@ -116,38 +116,37 @@ export default function GitHubNotifications() {
       {/* Body */}
       <div className="flex-1 overflow-y-auto">
         {loading ? (
-          <div className="flex items-center justify-center py-12 text-sm text-zinc-400">
+          <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
             Loading…
           </div>
         ) : notifications.length === 0 ? (
-          <div className="flex items-center justify-center py-12 text-sm text-zinc-400">
+          <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
             No notifications 🎉
           </div>
         ) : (
-          <ul className="divide-y divide-zinc-100">
+          <ul className="divide-y divide-border">
             {notifications.map((n) => (
               <li
                 key={n.id}
-                className="px-4 py-3 transition-colors hover:bg-amber-50/50"
-              >
+                className="px-4 py-3 transition-colors hover:bg-muted/50"              >
                 <div className="flex items-start justify-between gap-2">
                   <a
                     href={notificationUrl(n)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="min-w-0 flex-1 text-sm font-medium text-zinc-700 hover:text-violet-600"
+                    className="min-w-0 flex-1 text-sm font-medium text-foreground hover:text-primary transition-colors block truncate"
                   >
                     {n.unread && (
-                      <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-violet-500" />
+                      <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-pink-400" />
                     )}
                     {n.title}
                   </a>
-                  <span className="shrink-0 text-xs text-zinc-400">
+                  <span className="shrink-0 text-xs text-muted-foreground whitespace-nowrap ml-2">
                     {timeAgo(n.updatedAt)}
                   </span>
                 </div>
                 <div className="mt-1 flex items-center gap-2">
-                  <span className="truncate text-xs text-zinc-400">
+                  <span className="truncate text-xs text-muted-foreground">
                     {n.repoFullName}
                   </span>
                   {reasonBadge(n.reason)}

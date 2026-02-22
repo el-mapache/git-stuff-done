@@ -1,10 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useTheme } from 'next-themes';
+import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels';
 import RawWorkLog from './RawWorkLog';
-import RichWorkLog from './RichWorkLog';
 import TodoList from './TodoList';
+import MyPRs from './MyPRs';
 import GitHubNotifications from './GitHubNotifications';
+import SummaryModal from './SummaryModal';
 import { GITHUB_ORG } from '@/lib/constants';
 
 function todayISO() {
@@ -12,9 +15,17 @@ function todayISO() {
 }
 
 export default function Dashboard() {
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
   const [committing, setCommitting] = useState(false);
   const [commitMsg, setCommitMsg] = useState<string | null>(null);
-  const [date, setDate] = useState(todayISO());
+  const [date, setDate] = useState(todayISO);
+  const [showSummary, setShowSummary] = useState(false);
+
+  // Avoid hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   function shiftDate(days: number) {
     const d = new Date(date + 'T12:00:00');
@@ -23,24 +34,6 @@ export default function Dashboard() {
   }
 
   const isToday = date === todayISO();
-  const [enrichKey, setEnrichKey] = useState(0);
-  const enrichTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const triggerEnrichDebounced = useCallback(() => {
-    if (enrichTimerRef.current) clearTimeout(enrichTimerRef.current);
-    enrichTimerRef.current = setTimeout(() => {
-      console.log("[dashboard] Auto-enriching after save...");
-      fetch('/api/enrich', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date }),
-      }).then(() => setEnrichKey((k) => k + 1));
-    }, 3000);
-  }, [date]);
-
-  useEffect(() => {
-    return () => { if (enrichTimerRef.current) clearTimeout(enrichTimerRef.current); };
-  }, []);
 
   const [showSettings, setShowSettings] = useState(false);
   const [ignoredRepos, setIgnoredRepos] = useState<string[]>([]);
@@ -106,22 +99,22 @@ export default function Dashboard() {
   });
 
   return (
-    <div className="flex h-screen flex-col bg-amber-50/40 text-zinc-800">
+    <div className="flex h-screen flex-col bg-background text-foreground transition-colors duration-300">
       {/* Header */}
-      <header className="flex shrink-0 items-center justify-between border-b border-amber-200 bg-white px-6 py-3 shadow-sm">
-        <span className="text-lg font-bold tracking-tight">✨ get stuff done</span>
+      <header className="flex shrink-0 items-center justify-between border-b border-border bg-card/70 backdrop-blur-sm px-6 py-3">
+        <span className="text-lg font-bold tracking-tight bg-gradient-to-r from-primary to-pink-400 bg-clip-text text-transparent">✨ get stuff done</span>
         <div className="flex items-center gap-2">
           <button
             onClick={() => shiftDate(-1)}
-            className="rounded-md px-2 py-1 text-sm text-zinc-500 transition hover:bg-amber-100 hover:text-zinc-800"
+            className="rounded-lg px-2 py-1 text-sm text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
           >
             ←
           </button>
-          <span className="text-sm font-medium text-zinc-600">{displayDate}</span>
+          <span className="text-sm font-medium text-foreground">{displayDate}</span>
           {!isToday && (
             <button
               onClick={() => shiftDate(1)}
-              className="rounded-md px-2 py-1 text-sm text-zinc-500 transition hover:bg-amber-100 hover:text-zinc-800"
+              className="rounded-lg px-2 py-1 text-sm text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
             >
               →
             </button>
@@ -129,7 +122,7 @@ export default function Dashboard() {
           {!isToday && (
             <button
               onClick={() => setDate(todayISO())}
-              className="rounded-md bg-amber-100 px-2 py-1 text-xs font-medium text-amber-700 transition hover:bg-amber-200"
+              className="rounded-lg bg-accent px-2.5 py-1 text-xs font-semibold text-accent-foreground transition hover:opacity-80"
             >
               Today
             </button>
@@ -137,18 +130,33 @@ export default function Dashboard() {
         </div>
         <div className="flex items-center gap-3">
           {commitMsg && (
-            <span className="text-xs text-emerald-600 font-medium">{commitMsg}</span>
+            <span className="text-xs text-emerald-500 font-medium">{commitMsg}</span>
           )}
           <button
             onClick={handleCommit}
             disabled={committing}
-            className="rounded-lg bg-violet-500 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-violet-600 disabled:opacity-50"
+            className="rounded-xl bg-primary px-4 py-1.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90 disabled:opacity-50"
           >
-            {committing ? 'Committing…' : '🚀 Commit & Push'}
+            {committing ? 'Pushing…' : '🚀 Commit & Push'}
+          </button>
+          <button
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
+            aria-label="Toggle Theme"
+          >
+            {mounted ? (theme === 'dark' ? '🌙' : '☀️') : '…'}
+          </button>
+          <button
+            onClick={() => setShowSummary(true)}
+            className="rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
+            aria-label="Summarize"
+            title="Generate Summary"
+          >
+            📊
           </button>
           <button
             onClick={() => setShowSettings((s) => !s)}
-            className="rounded-md px-2 py-1.5 text-sm text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600"
+            className="rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
             aria-label="Settings"
           >
             ⚙️
@@ -156,12 +164,18 @@ export default function Dashboard() {
         </div>
       </header>
 
+      <SummaryModal
+        isOpen={showSummary}
+        onClose={() => setShowSummary(false)}
+        defaultDate={date}
+      />
+
       {/* Settings panel */}
       {showSettings && (
-        <div className="border-b border-amber-200 bg-white px-6 py-4 shadow-sm">
+        <div className="border-b border-border bg-card/80 backdrop-blur-sm px-6 py-4">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold text-zinc-700">Ignored Repos <span className="text-zinc-400 font-normal">(in {GITHUB_ORG} org)</span></h3>
-            <button onClick={() => setShowSettings(false)} className="text-xs text-zinc-400 hover:text-zinc-600">Close</button>
+            <h3 className="text-sm font-semibold text-foreground">Ignored Repos <span className="text-muted-foreground font-normal">(in {GITHUB_ORG} org)</span></h3>
+            <button onClick={() => setShowSettings(false)} className="text-xs text-muted-foreground hover:text-foreground">Close</button>
           </div>
           <form onSubmit={(e) => { e.preventDefault(); addIgnoredRepo(); }} className="flex gap-2 mb-2">
             <input
@@ -169,18 +183,18 @@ export default function Dashboard() {
               value={repoInput}
               onChange={(e) => setRepoInput(e.target.value)}
               placeholder="repo-name"
-              className="flex-1 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-sm text-zinc-800 placeholder-zinc-400 outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-200"
+              className="flex-1 rounded-xl border border-input bg-muted/50 px-3 py-1.5 text-sm text-foreground placeholder-muted-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/20"
             />
-            <button type="submit" className="rounded-lg bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-200">Add</button>
+            <button type="submit" className="rounded-xl bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground transition hover:opacity-80">Add</button>
           </form>
           {ignoredRepos.length === 0 ? (
-            <p className="text-xs text-zinc-400">No repos ignored. Notifications and enrichment include all repos.</p>
+            <p className="text-xs text-muted-foreground">No repos ignored.</p>
           ) : (
             <div className="flex flex-wrap gap-2">
               {ignoredRepos.map((repo) => (
-                <span key={repo} className="inline-flex items-center gap-1 rounded-full bg-rose-50 border border-rose-200 px-3 py-1 text-xs text-rose-600">
+                <span key={repo} className="inline-flex items-center gap-1 rounded-full bg-secondary border border-border px-3 py-1 text-xs text-secondary-foreground font-medium">
                   {repo}
-                  <button onClick={() => removeIgnoredRepo(repo)} className="text-rose-400 hover:text-rose-600">✕</button>
+                  <button onClick={() => removeIgnoredRepo(repo)} className="text-muted-foreground hover:text-foreground">✕</button>
                 </span>
               ))}
             </div>
@@ -188,21 +202,42 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Grid */}
-      <div className="grid min-h-0 flex-1 grid-cols-[3fr_2fr] grid-rows-2 gap-3 p-3">
-        <div className="overflow-auto rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-          <RawWorkLog date={date} onContentSaved={triggerEnrichDebounced} />
-        </div>
-        <div className="overflow-auto rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-          <TodoList date={date} />
-        </div>
-        <div className="overflow-auto rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-          <RichWorkLog date={date} refreshKey={enrichKey} />
-        </div>
-        <div className="overflow-auto rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-          <GitHubNotifications key={notifsKey} />
-        </div>
-      </div>
+      {/* Resizable Grid: Left (Log + TODOs) | Right (PRs + Notifications) */}
+      <PanelGroup orientation="horizontal" className="min-h-0 flex-1 p-3">
+        {/* Left column: Log on top, TODOs on bottom */}
+        <Panel defaultSize={55} minSize={30}>
+          <PanelGroup orientation="vertical">
+            <Panel defaultSize={60} minSize={20}>
+              <div className="h-full overflow-auto rounded-2xl border border-border bg-card/50 backdrop-blur-sm p-4 shadow-sm transition-colors">
+                <RawWorkLog date={date} />
+              </div>
+            </Panel>
+            <PanelResizeHandle className="my-1 h-1.5 rounded-full transition hover:bg-accent active:bg-primary/50" />
+            <Panel defaultSize={40} minSize={15}>
+              <div className="h-full overflow-auto rounded-2xl border border-border bg-card/50 backdrop-blur-sm p-4 shadow-sm transition-colors">
+                <TodoList date={date} />
+              </div>
+            </Panel>
+          </PanelGroup>
+        </Panel>
+        <PanelResizeHandle className="mx-1 w-1.5 rounded-full transition hover:bg-accent active:bg-primary/50" />
+        {/* Right column: PRs on top, Notifications on bottom */}
+        <Panel defaultSize={45} minSize={25}>
+          <PanelGroup orientation="vertical">
+            <Panel defaultSize={50} minSize={15}>
+              <div className="h-full overflow-auto rounded-2xl border border-border bg-card/50 backdrop-blur-sm p-4 shadow-sm transition-colors">
+                <MyPRs />
+              </div>
+            </Panel>
+            <PanelResizeHandle className="my-1 h-1.5 rounded-full transition hover:bg-accent active:bg-primary/50" />
+            <Panel defaultSize={50} minSize={15}>
+              <div className="h-full overflow-auto rounded-2xl border border-border bg-card/50 backdrop-blur-sm p-4 shadow-sm transition-colors">
+                <GitHubNotifications key={notifsKey} />
+              </div>
+            </Panel>
+          </PanelGroup>
+        </Panel>
+      </PanelGroup>
     </div>
   );
 }
