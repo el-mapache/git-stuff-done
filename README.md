@@ -8,9 +8,9 @@
 | :---: | :---: |
 | <img src="screenshots/darkmode.jpeg" width="400" /> | <img src="screenshots/lightmode.jpeg" width="400" /> |
 
-| AI Summary Generator |
-| :---: |
-| <img src="screenshots/summary.jpeg" width="800" /> |
+| AI Summary Generator | AI Todos |
+| :---: | :---: |
+| <img src="screenshots/summary.jpeg" width="400" /> | <img src="screenshots/ai-todos.png" width="400" /> |
 
 ## Features
 
