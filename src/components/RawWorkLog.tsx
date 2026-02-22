@@ -6,15 +6,18 @@ import remarkGfm from 'remark-gfm';
 
 type SaveStatus = 'idle' | 'unsaved' | 'saving' | 'saved';
 
+import { DEMO_LOG_CONTENT, DEMO_RICH_LOG_CONTENT } from '@/lib/demo';
+
 interface RawWorkLogProps {
   date?: string;
+  isDemo?: boolean;
 }
 
 function getTodayLocal(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
 }
 
-export default function RawWorkLog({ date }: RawWorkLogProps) {
+export default function RawWorkLog({ date, isDemo = false }: RawWorkLogProps) {
   const currentDate = date ?? getTodayLocal();
   const [content, setContent] = useState('');
   const [status, setStatus] = useState<SaveStatus>('idle');
@@ -27,6 +30,12 @@ export default function RawWorkLog({ date }: RawWorkLogProps) {
   useEffect(() => {
     let cancelled = false;
     async function fetchLog() {
+      if (isDemo) {
+        setContent(DEMO_LOG_CONTENT);
+        latestContentRef.current = DEMO_LOG_CONTENT;
+        setStatus('idle');
+        return;
+      }
       const res = await fetch(`/api/log?date=${currentDate}`);
       const data = await res.json();
       if (!cancelled) {
@@ -37,9 +46,10 @@ export default function RawWorkLog({ date }: RawWorkLogProps) {
     }
     fetchLog();
     return () => { cancelled = true; };
-  }, [currentDate]);
+  }, [currentDate, isDemo]);
 
   const save = useCallback(async (text: string) => {
+    if (isDemo) return;
     setStatus('saving');
     try {
       await fetch('/api/log', {
@@ -54,9 +64,19 @@ export default function RawWorkLog({ date }: RawWorkLogProps) {
   }, [currentDate]);
 
   const handleEnrich = async () => {
+    setEnriching(true);
+
+    if (isDemo) {
+      setTimeout(() => {
+        setContent(DEMO_RICH_LOG_CONTENT);
+        latestContentRef.current = DEMO_RICH_LOG_CONTENT;
+        setEnriching(false);
+      }, 1500);
+      return;
+    }
+
     // Save first, then enrich
     await save(latestContentRef.current);
-    setEnriching(true);
     try {
       const res = await fetch('/api/enrich', {
         method: 'POST',
@@ -198,6 +218,7 @@ export default function RawWorkLog({ date }: RawWorkLogProps) {
           <button
             onClick={handleEnrich}
             disabled={enriching || !content.trim()}
+            title={isDemo ? 'Enrich with AI (Demo)' : 'Enrich with AI'}
             className="rounded-lg bg-accent px-2.5 py-1 text-xs font-semibold text-accent-foreground transition hover:opacity-80 disabled:opacity-40"
           >
             {enriching ? '🪄 Enriching…' : '🪄 Enrich'}

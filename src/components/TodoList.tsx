@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { DEMO_TODOS, DEMO_SUGGESTED_TODOS } from "@/lib/demo";
 
 type TodoItem = {
   id: string;
@@ -10,16 +11,20 @@ type TodoItem = {
   createdAt: string;
 };
 
-export default function TodoList({ date }: { date?: string }) {
+export default function TodoList({ date, isDemo = false }: { date?: string, isDemo?: boolean }) {
   const [todos, setTodos] = useState<TodoItem[]>([]);
   const [input, setInput] = useState("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [suggesting, setSuggesting] = useState(false);
 
   const fetchTodos = useCallback(async () => {
+    if (isDemo) {
+      setTodos(DEMO_TODOS);
+      return;
+    }
     const res = await fetch("/api/todos");
     setTodos(await res.json());
-  }, []);
+  }, [isDemo]);
 
   useEffect(() => {
     fetchTodos();
@@ -27,6 +32,20 @@ export default function TodoList({ date }: { date?: string }) {
 
   const addTodo = async (title: string, source: "manual" | "suggested" = "manual") => {
     if (!title.trim()) return;
+
+    if (isDemo) {
+      const newTodo: TodoItem = {
+        id: Math.random().toString(36).slice(2),
+        title: title.trim(),
+        done: false,
+        source,
+        createdAt: new Date().toISOString()
+      };
+      setTodos(prev => [...prev, newTodo]);
+      if (source === "manual") setInput("");
+      return;
+    }
+
     const res = await fetch("/api/todos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -47,6 +66,11 @@ export default function TodoList({ date }: { date?: string }) {
   };
 
   const toggleTodo = async (id: string, done: boolean) => {
+    if (isDemo) {
+      // Allow optimistic toggle in demo mode for interactivity
+      setTodos(prev => prev.map(t => t.id === id ? { ...t, done } : t));
+      return;
+    }
     const res = await fetch("/api/todos", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -56,6 +80,7 @@ export default function TodoList({ date }: { date?: string }) {
   };
 
   const deleteTodo = async (id: string) => {
+    if (isDemo) return;
     const res = await fetch("/api/todos", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -67,6 +92,15 @@ export default function TodoList({ date }: { date?: string }) {
   const suggest = async () => {
     setSuggesting(true);
     setSuggestions([]);
+
+    if (isDemo) {
+      setTimeout(() => {
+        setSuggestions(DEMO_SUGGESTED_TODOS.map(t => t.title));
+        setSuggesting(false);
+      }, 1500);
+      return;
+    }
+
     try {
       const res = await fetch("/api/todos/suggest", {
         method: "POST",
@@ -118,6 +152,7 @@ export default function TodoList({ date }: { date?: string }) {
         <button
           onClick={suggest}
           disabled={suggesting}
+          title={isDemo ? 'Suggest todos (Demo)' : 'Suggest todos'}
           className="rounded-xl bg-gradient-to-r from-primary to-accent-foreground px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-sm transition hover:opacity-90 disabled:opacity-50"
         >
           {suggesting ? "Thinking…" : "✨ Suggest"}
@@ -135,7 +170,7 @@ export default function TodoList({ date }: { date?: string }) {
         />
         <button
           onClick={() => addTodo(input)}
-          className="rounded-xl bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground transition hover:opacity-80"
+          className="rounded-xl bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground transition hover:opacity-80 disabled:opacity-50"
         >
           Add
         </button>

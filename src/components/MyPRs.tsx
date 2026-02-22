@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { DEMO_PRS } from '@/lib/demo';
 
 type PullRequest = {
   id: number;
@@ -26,18 +27,23 @@ function timeAgo(dateString: string): string {
   return `${days}d ago`;
 }
 
-export default function MyPRs() {
+export default function MyPRs({ isDemo = false }: { isDemo?: boolean }) {
   const [prs, setPrs] = useState<PullRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     try {
+      if (isDemo) {
+        setPrs(DEMO_PRS);
+        setLoading(false);
+        return;
+      }
       const res = await fetch('/api/prs');
       const data: PullRequest[] = await res.json();
       setPrs(data);
     } catch { /* keep existing */ }
     finally { setLoading(false); }
-  }, []);
+  }, [isDemo]);
 
   useEffect(() => {
     refresh();

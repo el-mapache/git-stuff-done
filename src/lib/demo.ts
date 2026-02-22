@@ -1,0 +1,117 @@
+import { TodoItem } from '@/lib/files';
+
+export const DEMO_LOG_CONTENT = `
+- **Project: Analytics Dashboard**
+  - [x] Refactor data fetching hook to use SWR
+  - [x] Fix hydration mismatch error in chart component
+  - [ ] Add unit tests for date range picker
+  - Meeting with @sarah to discuss Q3 roadmap
+    - Need to prioritize mobile responsiveness
+    - backend API latency is a concern
+- **Code Review**
+  - Reviewed [feat: Add dark mode toggle (#45)](https://github.com/acme/frontend/pull/45)
+    - Great work on the color palette!
+    - Suggested using CSS variables for better maintainability
+  - Reviewed [fix: API timeout handling (#48)](https://github.com/acme/backend/pull/48)
+- **Learning**
+  - Watched Next.js 14 server actions tutorial
+  - Read article about React Compiler optimizations
+`.trim();
+
+export const DEMO_RICH_LOG_CONTENT = `
+- **Project: Analytics Dashboard**
+  - [x] Refactor data fetching hook to use SWR
+  - [x] Fix hydration mismatch error in chart component
+  - [ ] Add unit tests for date range picker
+  - Meeting with @sarah to discuss Q3 roadmap
+    - Need to prioritize mobile responsiveness
+    - backend API latency is a concern
+- **Code Review**
+  - Reviewed [feat: Add dark mode toggle (#45)](https://github.com/acme/frontend/pull/45)
+    - Great work on the color palette!
+    - Suggested using CSS variables for better maintainability
+  - Reviewed [fix: API timeout handling (#48)](https://github.com/acme/backend/pull/48)
+- **Learning**
+  - Watched Next.js 14 server actions tutorial
+  - Read article about React Compiler optimizations
+
+---
+**Summary**
+Today focused on the Analytics Dashboard refactoring and bug fixing. Also conducted code reviews for frontend features and backend fixes.
+`.trim();
+
+export const DEMO_SUGGESTED_TODOS: TodoItem[] = [
+  { id: 's1', title: 'Follow up on mobile responsiveness priority', done: false, source: 'suggested', createdAt: new Date().toISOString() },
+  { id: 's2', title: 'Check backend API latency metrics', done: false, source: 'suggested', createdAt: new Date().toISOString() },
+];
+
+export const DEMO_TODOS: TodoItem[] = [
+  { id: '1', title: 'Review PR #45 feedback', done: false, source: 'manual', createdAt: new Date().toISOString() },
+  { id: '2', title: 'Update documentation for API endpoints', done: true, source: 'manual', createdAt: new Date().toISOString() },
+  { id: '3', title: 'Schedule sync with design team', done: false, source: 'suggested', createdAt: new Date().toISOString() },
+  { id: '4', title: 'Investigate memory leak in worker', done: false, source: 'manual', createdAt: new Date().toISOString() },
+];
+
+export const DEMO_PRS = [
+  {
+    id: 101,
+    number: 52,
+    title: 'feat: Add user settings page',
+    url: '#',
+    repoFullName: 'acme/frontend',
+    state: 'open',
+    draft: false,
+    createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+    updatedAt: new Date(Date.now() - 3600000).toISOString(),
+    additions: 450,
+    deletions: 120,
+    reviewDecision: 'APPROVED',
+  },
+  {
+    id: 102,
+    number: 53,
+    title: 'fix: Login redirect loop',
+    url: '#',
+    repoFullName: 'acme/frontend',
+    state: 'open',
+    draft: true,
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+    updatedAt: new Date(Date.now() - 7200000).toISOString(),
+    additions: 15,
+    deletions: 5,
+    reviewDecision: null,
+  },
+];
+
+export const DEMO_NOTIFICATIONS = [
+  {
+    id: 'n1',
+    reason: 'review_requested',
+    title: 'refactor: Migrate to Tailwind v4',
+    url: 'https://api.github.com/repos/acme-corp/frontend/pulls/101',
+    repoFullName: 'acme/frontend',
+    type: 'PullRequest',
+    updatedAt: new Date(Date.now() - 1800000).toISOString(),
+    unread: true,
+  },
+  {
+    id: 'n2',
+    reason: 'mention',
+    title: 'bug: Chart crashes on mobile',
+    url: 'https://api.github.com/repos/acme-corp/frontend/issues/105',
+    repoFullName: 'acme/frontend',
+    type: 'Issue',
+    updatedAt: new Date(Date.now() - 3600000 * 4).toISOString(),
+    unread: true,
+  },
+  {
+    id: 'n3',
+    reason: 'assign',
+    title: 'docs: Update contributing guide',
+    url: 'https://api.github.com/repos/acme-corp/docs/issues/12',
+    repoFullName: 'acme/docs',
+    type: 'Issue',
+    updatedAt: new Date(Date.now() - 86400000).toISOString(),
+    unread: false,
+  },
+];

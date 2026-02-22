@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useTheme } from 'next-themes';
+import { useSearchParams } from 'next/navigation';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels';
 import RawWorkLog from './RawWorkLog';
 import TodoList from './TodoList';
@@ -15,6 +16,9 @@ function todayISO() {
 }
 
 export default function Dashboard() {
+  const searchParams = useSearchParams();
+  const isDemo = searchParams.get('demo') === 'true';
+
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [committing, setCommitting] = useState(false);
@@ -102,7 +106,14 @@ export default function Dashboard() {
     <div className="flex h-screen flex-col bg-background text-foreground transition-colors duration-300">
       {/* Header */}
       <header className="flex shrink-0 items-center justify-between border-b border-border bg-card/70 backdrop-blur-sm px-6 py-3">
-        <span className="text-lg font-bold tracking-tight bg-gradient-to-r from-primary to-pink-400 bg-clip-text text-transparent">✨ get stuff done</span>
+        <div className="flex items-center gap-3">
+          <span className="text-lg font-bold tracking-tight bg-gradient-to-r from-primary to-pink-400 bg-clip-text text-transparent">✨ git stuff done</span>
+          {isDemo && (
+            <span className="rounded-full bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-500 uppercase tracking-wide">
+              Demo Mode
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => shiftDate(-1)}
@@ -134,7 +145,8 @@ export default function Dashboard() {
           )}
           <button
             onClick={handleCommit}
-            disabled={committing}
+            disabled={committing || isDemo}
+            title={isDemo ? 'Disabled in demo mode' : 'Push to GitHub'}
             className="rounded-xl bg-primary px-4 py-1.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90 disabled:opacity-50"
           >
             {committing ? 'Pushing…' : '🚀 Commit & Push'}
@@ -168,6 +180,7 @@ export default function Dashboard() {
         isOpen={showSummary}
         onClose={() => setShowSummary(false)}
         defaultDate={date}
+        isDemo={isDemo}
       />
 
       {/* Settings panel */}
@@ -209,13 +222,13 @@ export default function Dashboard() {
           <PanelGroup orientation="vertical">
             <Panel defaultSize={60} minSize={20}>
               <div className="h-full overflow-auto rounded-2xl border border-border bg-card/50 backdrop-blur-sm p-4 shadow-sm transition-colors">
-                <RawWorkLog date={date} />
+                <RawWorkLog date={date} isDemo={isDemo} />
               </div>
             </Panel>
             <PanelResizeHandle className="my-1 h-1.5 rounded-full transition hover:bg-accent active:bg-primary/50" />
             <Panel defaultSize={40} minSize={15}>
               <div className="h-full overflow-auto rounded-2xl border border-border bg-card/50 backdrop-blur-sm p-4 shadow-sm transition-colors">
-                <TodoList date={date} />
+                <TodoList date={date} isDemo={isDemo} />
               </div>
             </Panel>
           </PanelGroup>
@@ -226,13 +239,13 @@ export default function Dashboard() {
           <PanelGroup orientation="vertical">
             <Panel defaultSize={50} minSize={15}>
               <div className="h-full overflow-auto rounded-2xl border border-border bg-card/50 backdrop-blur-sm p-4 shadow-sm transition-colors">
-                <MyPRs />
+                <MyPRs isDemo={isDemo} />
               </div>
             </Panel>
             <PanelResizeHandle className="my-1 h-1.5 rounded-full transition hover:bg-accent active:bg-primary/50" />
             <Panel defaultSize={50} minSize={15}>
               <div className="h-full overflow-auto rounded-2xl border border-border bg-card/50 backdrop-blur-sm p-4 shadow-sm transition-colors">
-                <GitHubNotifications key={notifsKey} />
+                <GitHubNotifications key={notifsKey} isDemo={isDemo} />
               </div>
             </Panel>
           </PanelGroup>

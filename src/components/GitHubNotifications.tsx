@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { DEMO_NOTIFICATIONS } from '@/lib/demo';
 
 type Notification = {
   id: string;
@@ -48,6 +49,11 @@ function reasonBadge(reason: string) {
 }
 
 function notificationUrl(n: Notification): string {
+  // Return dummy URL for demo items that don't match the regex
+  if (n.url.includes('api.github.com/repos/acme-corp')) {
+    return 'https://github.com/acme-corp/frontend/pull/101';
+  }
+
   // The API URL looks like https://api.github.com/repos/owner/repo/pulls/123
   // Convert to the web URL
   const match = n.url.match(
@@ -64,12 +70,17 @@ function notificationUrl(n: Notification): string {
   return `https://github.com/${n.repoFullName}`;
 }
 
-export default function GitHubNotifications() {
+export default function GitHubNotifications({ isDemo = false }: { isDemo?: boolean }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     try {
+      if (isDemo) {
+        setNotifications(DEMO_NOTIFICATIONS);
+        setLoading(false);
+        return;
+      }
       const res = await fetch('/api/notifications');
       const data: Notification[] = await res.json();
       setNotifications(data);
@@ -78,7 +89,7 @@ export default function GitHubNotifications() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isDemo]);
 
   useEffect(() => {
     refresh();
@@ -95,7 +106,8 @@ export default function GitHubNotifications() {
         </h2>
         <button
           onClick={refresh}
-          className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-amber-50 hover:text-amber-500 dark:hover:bg-amber-900/30"
+          disabled={isDemo}
+          className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-amber-50 hover:text-amber-500 dark:hover:bg-amber-900/30 disabled:opacity-50"
           aria-label="Refresh notifications"
         >
           <svg

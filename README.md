@@ -11,7 +11,7 @@ A personal daily work log dashboard that helps you track what you're doing, enri
 - **🔀 My PRs** — Live feed of your open PRs (including drafts) in your GitHub org.
 - **🔔 Notifications** — Filtered GitHub notifications: reviews requested, mentions, assignments, and activity on your issues/PRs.
 - **🚀 Auto-commit & Push** — Hourly auto-commit of your logs and TODOs to a git repo, with push to remote.
-- **⚙️ Settings** — Ignore noisy repos from notifications and enrichment.
+- **⚙️ Settings** — Ignore noisy repos in notifications.
 - **🌗 Dark Mode** — First-class support for both light and dark themes.
 
 ## Prerequisites

@@ -15,7 +15,7 @@ interface SummaryModalProps {
   defaultDate: string;
 }
 
-export default function SummaryModal({ isOpen, onClose, defaultDate }: SummaryModalProps) {
+export default function SummaryModal({ isOpen, onClose, defaultDate, isDemo = false }: SummaryModalProps & { isDemo?: boolean }) {
   const [startDate, setStartDate] = useState(defaultDate);
   const [endDate, setEndDate] = useState(defaultDate);
   const [customPrompt, setCustomPrompt] = useState(DEFAULT_PROMPTS[0].value);
@@ -34,6 +34,16 @@ export default function SummaryModal({ isOpen, onClose, defaultDate }: SummaryMo
     setLoading(true);
     setError(null);
     setResult(null);
+
+    if (isDemo) {
+      setTimeout(() => {
+        setResult("## Demo Summary\n\nThis is a generated summary of your work. In a real environment, this would be an AI-generated summary of your logs and pull requests.\n\n### Key Achievements\n- Implemented new features\n- Fixed critical bugs\n- Collaborated with the team\n\n### Next Steps\n- Deploy to production\n- Monitor performance");
+        setLoading(false);
+      }, 1500);
+      return;
+    }
+
+    console.log('Generating summary with:', { startDate, endDate, customPrompt });
 
     try {
       const res = await fetch('/api/summary', {
@@ -58,6 +68,10 @@ export default function SummaryModal({ isOpen, onClose, defaultDate }: SummaryMo
 
   const saveToRepo = async () => {
     if (!result) return;
+    if (isDemo) {
+      alert("In demo mode, this would save to: summaries/" + endDate + "-summary.md");
+      return;
+    }
     setSaving(true);
     setError(null);
 
