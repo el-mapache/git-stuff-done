@@ -1,18 +1,7 @@
 # git-stuff-done ✨
 
-**git-stuff-done** is your personal developer dashboard designed to keep you in the flow. It combines a distraction-free markdown editor for your daily work logs with AI superpowers. Track your work, manage your PRs and notifications, and generate standup summaries—all without leaving your local environment.
+**git-stuff-done** is your personal developer dashboard designed to keep you in the flow. It combines a distraction-free markdown editor for your daily work logs with AI superpowers. Track your work, manage your PRs and GitHub notifications, and generate work summaries all in one place.
 
-| Light Mode |
-| :---: |
-| <img src="screenshots/lightmode.jpeg" width="800" /> |
-
-| Dark Mode  |
-| :---: |
-| <img src="screenshots/darkmode.jpeg" width="800" /> |
-
-| Generate AI summaries for a given date range | AI Suggested TODOs |
-| :---: | :---: |
-| <img src="screenshots/summary.png" width="400" /> | <img src="screenshots/ai-todos.png" width="400" /> |
 
 ## Features
 
@@ -107,3 +96,22 @@
 - Space Grotesk + JetBrains Mono fonts
 - Octokit for GitHub API
 - react-resizable-panels for layout
+
+## Screenshots
+
+| Light Mode | Dark Mode |
+| :---: | :---: |
+| <img src="screenshots/lightmode.png" width="400" /> | <img src="screenshots/darkmode.png" width="400" /> |
+
+
+|  AI-Suggested TODOs ||
+| :---: | :---: |
+| <img src="screenshots/todos.png" width="400" /> | <img src="screenshots/ai-todos.png" width="400" /> |
+
+| AI Summaries |  |
+| :---: | :---: |
+| <img src="screenshots/summary.png" width="400" /> | <img src="screenshots/summary-result.png" width="400" /> |
+
+| Calendar Picker | Alternate Layout |
+| :---: | :---: |
+| <img src="screenshots/calendar.png" width="400" /> | <img src="screenshots/column-layout.png" width="400" /> |
