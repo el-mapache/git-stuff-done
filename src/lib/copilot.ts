@@ -91,5 +91,3 @@ ${rawMarkdown}`;
     return applyFallbackEnrichment(rawMarkdown, linkMap);
   }
 }
-
-export { callCopilot };

@@ -9,6 +9,7 @@ import TodoList from './TodoList';
 import MyPRs from './MyPRs';
 import GitHubNotifications from './GitHubNotifications';
 import SummaryModal from './SummaryModal';
+import CalendarPicker from './CalendarPicker';
 import { GITHUB_ORG } from '@/lib/constants';
 
 function todayISO() {
@@ -94,14 +95,6 @@ export default function Dashboard() {
     }
   }
 
-  const displayDate = new Date(date + 'T12:00:00').toLocaleDateString('en-US', {
-    timeZone: 'America/Los_Angeles',
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-
   return (
     <div className="flex h-screen flex-col bg-background text-foreground transition-colors duration-300">
       {/* Header */}
@@ -121,7 +114,7 @@ export default function Dashboard() {
           >
             ←
           </button>
-          <span className="text-sm font-medium text-foreground">{displayDate}</span>
+          <CalendarPicker date={date} onChange={setDate} />
           {!isToday && (
             <button
               onClick={() => shiftDate(1)}
