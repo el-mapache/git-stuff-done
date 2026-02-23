@@ -2,8 +2,7 @@
 
 **git-stuff-done** is your personal developer dashboard designed to keep you in the flow. It combines a distraction-free markdown editor for your daily work logs with AI superpowers. Track your work, manage your PRs and GitHub notifications, and generate work summaries all in one place.
 
-<img width="1000" alt="image" src="https://github.com/user-attachments/assets/bbdb4d0f-b826-47d0-a94d-7ae007002787" />
-
+<img width="1000" alt="image" src="https://github.com/user-attachments/assets/14825c4e-e2f9-4ba0-964d-336afcd26539" />
 
 
 ## Features
