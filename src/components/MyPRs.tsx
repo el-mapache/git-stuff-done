@@ -27,7 +27,7 @@ function timeAgo(dateString: string): string {
   return `${days}d ago`;
 }
 
-export default function MyPRs({ isDemo = false }: { isDemo?: boolean }) {
+export default function MyPRs({ isDemo = false, onInsert }: { isDemo?: boolean; onInsert?: (text: string) => void }) {
   const [prs, setPrs] = useState<PullRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -74,27 +74,42 @@ export default function MyPRs({ isDemo = false }: { isDemo?: boolean }) {
         ) : (
           <ul className="divide-y divide-border">
             {prs.map((pr) => (
-              <li key={pr.id} className="px-4 py-3 transition-colors hover:bg-muted/50">
-                <div className="flex items-start justify-between gap-2">
-                  <a
-                    href={pr.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="min-w-0 flex-1 text-sm font-medium text-foreground hover:text-primary transition-colors block truncate"
-                  >
-                    {pr.draft && (
-                      <span className="mr-1.5 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                        DRAFT
-                      </span>
-                    )}
-                    {pr.title}
-                  </a>
-                  <span className="shrink-0 text-xs text-muted-foreground whitespace-nowrap ml-2">{timeAgo(pr.updatedAt)}</span>
-                </div>
-                <div className="mt-1 flex items-center gap-3">
-                  <span className="text-xs text-muted-foreground">{pr.repoFullName}#{pr.number}</span>
-                  <span className="text-xs text-emerald-500">+{pr.additions}</span>
-                  <span className="text-xs text-destructive">-{pr.deletions}</span>
+              <li key={pr.id} className="group px-4 py-3 transition-colors hover:bg-muted/50">
+                <div className="flex items-start gap-2">
+                  {onInsert && (
+                    <button
+                      onClick={() => onInsert(`[${pr.repoFullName}#${pr.number} ${pr.title}](${pr.url})`)}
+                      title="Insert link at cursor"
+                      className="mt-0.5 shrink-0 opacity-0 group-hover:opacity-100 rounded p-0.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
+                        <path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h9A1.5 1.5 0 0 1 14 4.5v5a1.5 1.5 0 0 1-1.5 1.5H9.56l.97.97a.75.75 0 1 1-1.06 1.06l-2.25-2.25a.75.75 0 0 1 0-1.06l2.25-2.25a.75.75 0 0 1 1.06 1.06l-.97.97h2.94a.25.25 0 0 0 .25-.25v-5a.25.25 0 0 0-.25-.25h-9a.25.25 0 0 0-.25.25v2a.75.75 0 0 1-1.5 0v-2z"/>
+                      </svg>
+                    </button>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <a
+                        href={pr.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="min-w-0 flex-1 text-sm font-medium text-foreground hover:text-primary transition-colors block truncate"
+                      >
+                        {pr.draft && (
+                          <span className="mr-1.5 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                            DRAFT
+                          </span>
+                        )}
+                        {pr.title}
+                      </a>
+                      <span className="shrink-0 text-xs text-muted-foreground whitespace-nowrap">{timeAgo(pr.updatedAt)}</span>
+                    </div>
+                    <div className="mt-1 flex items-center gap-3">
+                      <span className="text-xs text-muted-foreground">{pr.repoFullName}#{pr.number}</span>
+                      <span className="text-xs text-emerald-500">+{pr.additions}</span>
+                      <span className="text-xs text-destructive">-{pr.deletions}</span>
+                    </div>
+                  </div>
                 </div>
               </li>
             ))}

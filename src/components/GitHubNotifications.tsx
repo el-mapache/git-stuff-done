@@ -70,7 +70,7 @@ function notificationUrl(n: Notification): string {
   return `https://github.com/${n.repoFullName}`;
 }
 
-export default function GitHubNotifications({ isDemo = false }: { isDemo?: boolean }) {
+export default function GitHubNotifications({ isDemo = false, onInsert }: { isDemo?: boolean; onInsert?: (text: string) => void }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -140,28 +140,43 @@ export default function GitHubNotifications({ isDemo = false }: { isDemo?: boole
             {notifications.map((n) => (
               <li
                 key={n.id}
-                className="px-4 py-3 transition-colors hover:bg-muted/50"              >
-                <div className="flex items-start justify-between gap-2">
-                  <a
-                    href={notificationUrl(n)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="min-w-0 flex-1 text-sm font-medium text-foreground hover:text-primary transition-colors block truncate"
-                  >
-                    {n.unread && (
-                      <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-pink-400" />
-                    )}
-                    {n.title}
-                  </a>
-                  <span className="shrink-0 text-xs text-muted-foreground whitespace-nowrap ml-2">
-                    {timeAgo(n.updatedAt)}
-                  </span>
-                </div>
-                <div className="mt-1 flex items-center gap-2">
-                  <span className="truncate text-xs text-muted-foreground">
-                    {n.repoFullName}
-                  </span>
-                  {reasonBadge(n.reason)}
+                className="group px-4 py-3 transition-colors hover:bg-muted/50"              >
+                <div className="flex items-start gap-2">
+                  {onInsert && (
+                    <button
+                      onClick={() => onInsert(`[${n.title}](${notificationUrl(n)})`)}
+                      title="Insert link at cursor"
+                      className="mt-0.5 shrink-0 opacity-0 group-hover:opacity-100 rounded p-0.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
+                        <path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h9A1.5 1.5 0 0 1 14 4.5v5a1.5 1.5 0 0 1-1.5 1.5H9.56l.97.97a.75.75 0 1 1-1.06 1.06l-2.25-2.25a.75.75 0 0 1 0-1.06l2.25-2.25a.75.75 0 0 1 1.06 1.06l-.97.97h2.94a.25.25 0 0 0 .25-.25v-5a.25.25 0 0 0-.25-.25h-9a.25.25 0 0 0-.25.25v2a.75.75 0 0 1-1.5 0v-2z"/>
+                      </svg>
+                    </button>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <a
+                        href={notificationUrl(n)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="min-w-0 flex-1 text-sm font-medium text-foreground hover:text-primary transition-colors block truncate"
+                      >
+                        {n.unread && (
+                          <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-pink-400" />
+                        )}
+                        {n.title}
+                      </a>
+                      <span className="shrink-0 text-xs text-muted-foreground whitespace-nowrap">
+                        {timeAgo(n.updatedAt)}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex items-center gap-2">
+                      <span className="truncate text-xs text-muted-foreground">
+                        {n.repoFullName}
+                      </span>
+                      {reasonBadge(n.reason)}
+                    </div>
+                  </div>
                 </div>
               </li>
             ))}

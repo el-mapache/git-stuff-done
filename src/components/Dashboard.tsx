@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTheme } from 'next-themes';
 import { useSearchParams } from 'next/navigation';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels';
@@ -26,6 +26,7 @@ export default function Dashboard() {
   const [commitMsg, setCommitMsg] = useState<string | null>(null);
   const [date, setDate] = useState(todayISO);
   const [showSummary, setShowSummary] = useState(false);
+  const insertAtCursorRef = useRef<((text: string) => void) | null>(null);
 
   // Avoid hydration mismatch
   useEffect(() => {
@@ -215,7 +216,7 @@ export default function Dashboard() {
           <PanelGroup orientation="vertical">
             <Panel defaultSize={60} minSize={20}>
               <div className="h-full overflow-auto rounded-2xl border border-border bg-card/50 backdrop-blur-sm p-4 shadow-sm transition-colors">
-                <RawWorkLog date={date} isDemo={isDemo} />
+                <RawWorkLog date={date} isDemo={isDemo} onRegisterInsert={(fn) => { insertAtCursorRef.current = fn; }} />
               </div>
             </Panel>
             <PanelResizeHandle className="my-1 h-1.5 rounded-full transition hover:bg-accent active:bg-primary/50" />
@@ -232,13 +233,13 @@ export default function Dashboard() {
           <PanelGroup orientation="vertical">
             <Panel defaultSize={50} minSize={15}>
               <div className="h-full overflow-auto rounded-2xl border border-border bg-card/50 backdrop-blur-sm p-4 shadow-sm transition-colors">
-                <MyPRs isDemo={isDemo} />
+                <MyPRs isDemo={isDemo} onInsert={(text) => insertAtCursorRef.current?.(text)} />
               </div>
             </Panel>
             <PanelResizeHandle className="my-1 h-1.5 rounded-full transition hover:bg-accent active:bg-primary/50" />
             <Panel defaultSize={50} minSize={15}>
               <div className="h-full overflow-auto rounded-2xl border border-border bg-card/50 backdrop-blur-sm p-4 shadow-sm transition-colors">
-                <GitHubNotifications key={notifsKey} isDemo={isDemo} />
+                <GitHubNotifications key={notifsKey} isDemo={isDemo} onInsert={(text) => insertAtCursorRef.current?.(text)} />
               </div>
             </Panel>
           </PanelGroup>

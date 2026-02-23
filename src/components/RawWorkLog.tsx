@@ -11,13 +11,14 @@ import { DEMO_LOG_CONTENT, DEMO_RICH_LOG_CONTENT } from '@/lib/demo';
 interface RawWorkLogProps {
   date?: string;
   isDemo?: boolean;
+  onRegisterInsert?: (fn: (text: string) => void) => void;
 }
 
 function getTodayLocal(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
 }
 
-export default function RawWorkLog({ date, isDemo = false }: RawWorkLogProps) {
+export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: RawWorkLogProps) {
   const currentDate = date ?? getTodayLocal();
   const [content, setContent] = useState('');
   const [status, setStatus] = useState<SaveStatus>('idle');
@@ -106,6 +107,22 @@ export default function RawWorkLog({ date, isDemo = false }: RawWorkLogProps) {
     scheduleAutosave(text);
   }, [scheduleAutosave]);
 
+  const insertAtCursor = useCallback((text: string) => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const { selectionStart, selectionEnd, value } = ta;
+    const newVal = value.slice(0, selectionStart) + text + value.slice(selectionEnd);
+    updateContent(newVal);
+    requestAnimationFrame(() => {
+      ta.focus();
+      ta.selectionStart = ta.selectionEnd = selectionStart + text.length;
+    });
+  }, [updateContent]);
+
+  useEffect(() => {
+    onRegisterInsert?.(insertAtCursor);
+  }, [onRegisterInsert, insertAtCursor]);
+
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     updateContent(e.target.value);
   };
@@ -117,26 +134,9 @@ export default function RawWorkLog({ date, isDemo = false }: RawWorkLogProps) {
 
     if (e.key === 'Tab') {
       e.preventDefault();
-      if (selectionStart === selectionEnd) {
-        const before = value.slice(0, selectionStart);
-        const after = value.slice(selectionEnd);
-        const newVal = e.shiftKey
-          ? (() => {
-              const lineStart = before.lastIndexOf('\n') + 1;
-              const line = value.slice(lineStart);
-              if (line.startsWith('  ')) {
-                return value.slice(0, lineStart) + line.slice(2);
-              }
-              return value;
-            })()
-          : before + '  ' + after;
-        updateContent(newVal);
-        requestAnimationFrame(() => {
-          const offset = e.shiftKey ? -2 : 2;
-          const pos = Math.max(0, selectionStart + offset);
-          ta.selectionStart = ta.selectionEnd = pos;
-        });
-      } else {
+
+      if (selectionStart !== selectionEnd) {
+        // Block indent/unindent selected lines
         const lineStart = value.lastIndexOf('\n', selectionStart - 1) + 1;
         const lineEnd = value.indexOf('\n', selectionEnd);
         const end = lineEnd === -1 ? value.length : lineEnd;
@@ -150,6 +150,44 @@ export default function RawWorkLog({ date, isDemo = false }: RawWorkLogProps) {
           ta.selectionStart = lineStart;
           ta.selectionEnd = lineStart + indented.length;
         });
+        return;
+      }
+
+      // Single cursor — check if current line is a bullet line
+      const lineStart = value.lastIndexOf('\n', selectionStart - 1) + 1;
+      const lineEnd = value.indexOf('\n', selectionStart);
+      const end = lineEnd === -1 ? value.length : lineEnd;
+      const line = value.slice(lineStart, end);
+      const isBulletLine = /^\s*([-*+]|\d+\.)\s?/.test(line);
+
+      if (isBulletLine) {
+        // Indent/unindent the whole bullet line
+        const newLine = e.shiftKey
+          ? (line.startsWith('  ') ? line.slice(2) : line)
+          : '  ' + line;
+        const delta = newLine.length - line.length;
+        const newVal = value.slice(0, lineStart) + newLine + value.slice(end);
+        updateContent(newVal);
+        requestAnimationFrame(() => {
+          ta.selectionStart = ta.selectionEnd = Math.max(lineStart, selectionStart + delta);
+        });
+      } else {
+        // Insert/remove 2 spaces at cursor
+        if (e.shiftKey) {
+          if (line.startsWith('  ')) {
+            const newVal = value.slice(0, lineStart) + line.slice(2) + value.slice(end);
+            updateContent(newVal);
+            requestAnimationFrame(() => {
+              ta.selectionStart = ta.selectionEnd = Math.max(lineStart, selectionStart - 2);
+            });
+          }
+        } else {
+          const newVal = value.slice(0, selectionStart) + '  ' + value.slice(selectionStart);
+          updateContent(newVal);
+          requestAnimationFrame(() => {
+            ta.selectionStart = ta.selectionEnd = selectionStart + 2;
+          });
+        }
       }
       return;
     }
