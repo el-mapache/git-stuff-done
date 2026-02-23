@@ -111,27 +111,25 @@ export default function Dashboard() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => shiftDate(-1)}
+            aria-label="Previous day"
             className="rounded-lg px-2 py-1 text-sm text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
           >
             ←
           </button>
           <CalendarPicker date={date} onChange={setDate} />
-          {!isToday && (
-            <button
-              onClick={() => shiftDate(1)}
-              className="rounded-lg px-2 py-1 text-sm text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
-            >
-              →
-            </button>
-          )}
-          {!isToday && (
-            <button
-              onClick={() => setDate(todayISO())}
-              className="rounded-lg bg-accent px-2.5 py-1 text-xs font-semibold text-accent-foreground transition hover:opacity-80"
-            >
-              Today
-            </button>
-          )}
+          <button
+            onClick={() => shiftDate(1)}
+            aria-label="Next day"
+            className={`rounded-lg px-2 py-1 text-sm text-muted-foreground transition hover:bg-accent hover:text-accent-foreground ${isToday ? 'invisible' : ''}`}
+          >
+            →
+          </button>
+          <button
+            onClick={() => setDate(todayISO())}
+            className={`rounded-lg bg-accent px-2.5 py-1 text-xs font-semibold text-accent-foreground transition hover:opacity-80 ${isToday ? 'invisible' : ''}`}
+          >
+            Today
+          </button>
         </div>
         <div className="flex items-center gap-3">
           {commitMsg && (

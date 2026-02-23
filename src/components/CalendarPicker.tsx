@@ -12,6 +12,10 @@ function getTodayISO() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
 }
 
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'];
+const DAY_NAMES = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
 export default function CalendarPicker({ date, onChange }: CalendarPickerProps) {
   const [open, setOpen] = useState(false);
   const [viewYear, setViewYear] = useState(() => parseInt(date.slice(0, 4)));
@@ -71,10 +75,6 @@ export default function CalendarPicker({ date, onChange }: CalendarPickerProps) 
     const d = String(day).padStart(2, '0');
     return `${viewYear}-${m}-${d}`;
   }
-
-  const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'];
-  const DAY_NAMES = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
   const displayDate = new Date(date + 'T12:00:00').toLocaleDateString('en-US', {
     timeZone: 'America/Los_Angeles',

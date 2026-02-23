@@ -3,10 +3,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { DEMO_LOG_CONTENT, DEMO_RICH_LOG_CONTENT } from '@/lib/demo';
 
 type SaveStatus = 'idle' | 'unsaved' | 'saving' | 'saved';
 
-import { DEMO_LOG_CONTENT, DEMO_RICH_LOG_CONTENT } from '@/lib/demo';
+const STATUS_LABEL: Record<SaveStatus, string> = {
+  idle: '', unsaved: 'Unsaved changes', saving: 'Saving...', saved: 'Saved ✓',
+};
+const STATUS_COLOR: Record<SaveStatus, string> = {
+  idle: 'text-muted-foreground', unsaved: 'text-amber-500', saving: 'text-primary', saved: 'text-emerald-500',
+};
 
 interface RawWorkLogProps {
   date?: string;
@@ -127,113 +133,103 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
     updateContent(e.target.value);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    const ta = textareaRef.current;
-    if (!ta) return;
+  function handleTab(e: React.KeyboardEvent<HTMLTextAreaElement>, ta: HTMLTextAreaElement) {
     const { selectionStart, selectionEnd, value } = ta;
+    e.preventDefault();
 
-    if (e.key === 'Tab') {
-      e.preventDefault();
-
-      if (selectionStart !== selectionEnd) {
-        // Block indent/unindent selected lines
-        const lineStart = value.lastIndexOf('\n', selectionStart - 1) + 1;
-        const lineEnd = value.indexOf('\n', selectionEnd);
-        const end = lineEnd === -1 ? value.length : lineEnd;
-        const block = value.slice(lineStart, end);
-        const indented = e.shiftKey
-          ? block.replace(/^  /gm, '')
-          : block.replace(/^/gm, '  ');
-        const newVal = value.slice(0, lineStart) + indented + value.slice(end);
-        updateContent(newVal);
-        requestAnimationFrame(() => {
-          ta.selectionStart = lineStart;
-          ta.selectionEnd = lineStart + indented.length;
-        });
-        return;
-      }
-
-      // Single cursor — check if current line is a bullet line
+    if (selectionStart !== selectionEnd) {
       const lineStart = value.lastIndexOf('\n', selectionStart - 1) + 1;
-      const lineEnd = value.indexOf('\n', selectionStart);
+      const lineEnd = value.indexOf('\n', selectionEnd);
       const end = lineEnd === -1 ? value.length : lineEnd;
-      const line = value.slice(lineStart, end);
-      const isBulletLine = /^\s*([-*+]|\d+\.)\s?/.test(line);
-
-      if (isBulletLine) {
-        // Indent/unindent the whole bullet line
-        const newLine = e.shiftKey
-          ? (line.startsWith('  ') ? line.slice(2) : line)
-          : '  ' + line;
-        const delta = newLine.length - line.length;
-        const newVal = value.slice(0, lineStart) + newLine + value.slice(end);
-        updateContent(newVal);
-        requestAnimationFrame(() => {
-          ta.selectionStart = ta.selectionEnd = Math.max(lineStart, selectionStart + delta);
-        });
-      } else {
-        // Insert/remove 2 spaces at cursor
-        if (e.shiftKey) {
-          if (line.startsWith('  ')) {
-            const newVal = value.slice(0, lineStart) + line.slice(2) + value.slice(end);
-            updateContent(newVal);
-            requestAnimationFrame(() => {
-              ta.selectionStart = ta.selectionEnd = Math.max(lineStart, selectionStart - 2);
-            });
-          }
-        } else {
-          const newVal = value.slice(0, selectionStart) + '  ' + value.slice(selectionStart);
-          updateContent(newVal);
-          requestAnimationFrame(() => {
-            ta.selectionStart = ta.selectionEnd = selectionStart + 2;
-          });
-        }
-      }
+      const block = value.slice(lineStart, end);
+      const indented = e.shiftKey
+        ? block.replace(/^  /gm, '')
+        : block.replace(/^/gm, '  ');
+      const newVal = value.slice(0, lineStart) + indented + value.slice(end);
+      updateContent(newVal);
+      requestAnimationFrame(() => {
+        ta.selectionStart = lineStart;
+        ta.selectionEnd = lineStart + indented.length;
+      });
       return;
     }
 
-    if (e.key === 'Enter') {
-      const before = value.slice(0, selectionStart);
-      const currentLine = before.slice(before.lastIndexOf('\n') + 1);
-      const bulletMatch = currentLine.match(/^(\s*)([-*+]|\d+\.)\s/);
-      if (bulletMatch) {
-        const contentAfterBullet = currentLine.slice(bulletMatch[0].length);
-        if (!contentAfterBullet.trim()) {
-          e.preventDefault();
-          const lineStart = before.lastIndexOf('\n') + 1;
-          const newVal = value.slice(0, lineStart) + '\n' + value.slice(selectionEnd);
+    const lineStart = value.lastIndexOf('\n', selectionStart - 1) + 1;
+    const lineEnd = value.indexOf('\n', selectionStart);
+    const end = lineEnd === -1 ? value.length : lineEnd;
+    const line = value.slice(lineStart, end);
+    const isBulletLine = /^\s*([-*+]|\d+\.)\s?/.test(line);
+
+    if (isBulletLine) {
+      const newLine = e.shiftKey
+        ? (line.startsWith('  ') ? line.slice(2) : line)
+        : '  ' + line;
+      const delta = newLine.length - line.length;
+      const newVal = value.slice(0, lineStart) + newLine + value.slice(end);
+      updateContent(newVal);
+      requestAnimationFrame(() => {
+        ta.selectionStart = ta.selectionEnd = Math.max(lineStart, selectionStart + delta);
+      });
+    } else {
+      if (e.shiftKey) {
+        if (line.startsWith('  ')) {
+          const newVal = value.slice(0, lineStart) + line.slice(2) + value.slice(end);
           updateContent(newVal);
           requestAnimationFrame(() => {
-            ta.selectionStart = ta.selectionEnd = lineStart + 1;
+            ta.selectionStart = ta.selectionEnd = Math.max(lineStart, selectionStart - 2);
           });
-          return;
         }
-        e.preventDefault();
-        const indent = bulletMatch[1];
-        const bullet = bulletMatch[2];
-        const nextBullet = /^\d+\.?$/.test(bullet)
-          ? `${parseInt(bullet) + 1}.`
-          : bullet;
-        const continuation = `\n${indent}${nextBullet} `;
-        const newVal = before + continuation + value.slice(selectionEnd);
+      } else {
+        const newVal = value.slice(0, selectionStart) + '  ' + value.slice(selectionStart);
         updateContent(newVal);
         requestAnimationFrame(() => {
-          ta.selectionStart = ta.selectionEnd = selectionStart + continuation.length;
+          ta.selectionStart = ta.selectionEnd = selectionStart + 2;
         });
       }
     }
+  }
+
+  function handleEnter(e: React.KeyboardEvent<HTMLTextAreaElement>, ta: HTMLTextAreaElement) {
+    const { selectionStart, selectionEnd, value } = ta;
+    const before = value.slice(0, selectionStart);
+    const currentLine = before.slice(before.lastIndexOf('\n') + 1);
+    const bulletMatch = currentLine.match(/^(\s*)([-*+]|\d+\.)\s/);
+    if (!bulletMatch) return;
+
+    const contentAfterBullet = currentLine.slice(bulletMatch[0].length);
+    if (!contentAfterBullet.trim()) {
+      e.preventDefault();
+      const lineStart = before.lastIndexOf('\n') + 1;
+      const newVal = value.slice(0, lineStart) + '\n' + value.slice(selectionEnd);
+      updateContent(newVal);
+      requestAnimationFrame(() => {
+        ta.selectionStart = ta.selectionEnd = lineStart + 1;
+      });
+      return;
+    }
+
+    e.preventDefault();
+    const indent = bulletMatch[1];
+    const bullet = bulletMatch[2];
+    const nextBullet = /^\d+\.?$/.test(bullet) ? `${parseInt(bullet) + 1}.` : bullet;
+    const continuation = `\n${indent}${nextBullet} `;
+    const newVal = before + continuation + value.slice(selectionEnd);
+    updateContent(newVal);
+    requestAnimationFrame(() => {
+      ta.selectionStart = ta.selectionEnd = selectionStart + continuation.length;
+    });
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    if (e.key === 'Tab') handleTab(e, ta);
+    if (e.key === 'Enter') handleEnter(e, ta);
   };
 
   useEffect(() => {
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, []);
-
-  const statusLabel: Record<SaveStatus, string> = {
-    idle: '', unsaved: 'Unsaved changes', saving: 'Saving...', saved: 'Saved ✓',
-  };
-  const statusColor: Record<SaveStatus, string> = {
-    idle: 'text-muted-foreground', unsaved: 'text-amber-500', saving: 'text-primary', saved: 'text-emerald-500',
-  };
 
   return (
     <div className="flex h-full flex-col">
@@ -243,8 +239,8 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
         </span>
         <div className="flex items-center gap-2">
           {status !== 'idle' && (
-            <span className={`text-xs font-medium ${statusColor[status]}`}>
-              {statusLabel[status]}
+            <span className={`text-xs font-medium ${STATUS_COLOR[status]}`}>
+              {STATUS_LABEL[status]}
             </span>
           )}
           <button
