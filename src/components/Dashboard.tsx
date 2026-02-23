@@ -239,7 +239,7 @@ export default function Dashboard() {
             <PanelResizeHandle className="my-1 h-1.5 rounded-full transition hover:bg-accent active:bg-primary/50" />
             <Panel defaultSize={50} minSize={15}>
               <div className="h-full overflow-auto rounded-2xl border border-border bg-card/50 backdrop-blur-sm p-4 shadow-sm transition-colors">
-                <GitHubNotifications key={notifsKey} isDemo={isDemo} onInsert={(text) => insertAtCursorRef.current?.(text)} />
+                <GitHubNotifications refreshTrigger={notifsKey} isDemo={isDemo} onInsert={(text) => insertAtCursorRef.current?.(text)} />
               </div>
             </Panel>
           </PanelGroup>

@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { DEMO_PRS } from '@/lib/demo';
+import { useVisibilityPolling } from '@/hooks/useVisibilityPolling';
 
 type PullRequest = {
   id: number;
@@ -30,6 +31,7 @@ function timeAgo(dateString: string): string {
 export default function MyPRs({ isDemo = false, onInsert }: { isDemo?: boolean; onInsert?: (text: string) => void }) {
   const [prs, setPrs] = useState<PullRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const abortRef = useRef<AbortController | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -38,18 +40,23 @@ export default function MyPRs({ isDemo = false, onInsert }: { isDemo?: boolean; 
         setLoading(false);
         return;
       }
-      const res = await fetch('/api/prs');
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      const res = await fetch('/api/prs', { signal: controller.signal });
       const data: PullRequest[] = await res.json();
       setPrs(data);
-    } catch { /* keep existing */ }
-    finally { setLoading(false); }
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
+      // keep existing data on error
+    } finally {
+      setLoading(false);
+    }
   }, [isDemo]);
 
-  useEffect(() => {
-    refresh();
-    const id = setInterval(refresh, 120_000);
-    return () => clearInterval(id);
-  }, [refresh]);
+  useEffect(() => { refresh(); }, [refresh]);
+  useVisibilityPolling(refresh, 120_000);
+  useEffect(() => () => { abortRef.current?.abort(); }, []);
 
   return (
     <div className="flex h-full flex-col">

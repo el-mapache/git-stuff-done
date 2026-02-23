@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { DEMO_NOTIFICATIONS } from '@/lib/demo';
+import { useVisibilityPolling } from '@/hooks/useVisibilityPolling';
 
 type Notification = {
   id: string;
@@ -70,9 +71,10 @@ function notificationUrl(n: Notification): string {
   return `https://github.com/${n.repoFullName}`;
 }
 
-export default function GitHubNotifications({ isDemo = false, onInsert }: { isDemo?: boolean; onInsert?: (text: string) => void }) {
+export default function GitHubNotifications({ isDemo = false, onInsert, refreshTrigger }: { isDemo?: boolean; onInsert?: (text: string) => void; refreshTrigger?: number }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const abortRef = useRef<AbortController | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -81,21 +83,32 @@ export default function GitHubNotifications({ isDemo = false, onInsert }: { isDe
         setLoading(false);
         return;
       }
-      const res = await fetch('/api/notifications');
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      const res = await fetch('/api/notifications', { signal: controller.signal });
       const data: Notification[] = await res.json();
       setNotifications(data);
-    } catch {
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       // keep existing data on error
     } finally {
       setLoading(false);
     }
   }, [isDemo]);
 
+  // Initial fetch + visibility-aware polling
+  useEffect(() => { refresh(); }, [refresh]);
+  useVisibilityPolling(refresh, 60_000);
+
+  // Refetch when refreshTrigger changes (e.g. ignored repos updated)
   useEffect(() => {
-    refresh();
-    const id = setInterval(refresh, 60_000);
-    return () => clearInterval(id);
-  }, [refresh]);
+    if (refreshTrigger !== undefined) refresh();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshTrigger]);
+
+  // Abort on unmount
+  useEffect(() => () => { abortRef.current?.abort(); }, []);
 
   return (
     <div className="flex h-full flex-col rounded-xl text-foreground">
