@@ -144,6 +144,7 @@ export type MyPullRequest = {
   additions: number;
   deletions: number;
   reviewDecision: string | null;
+  inMergeQueue: boolean;
 };
 
 export async function fetchMyPRs(): Promise<MyPullRequest[]> {
@@ -191,9 +192,55 @@ export async function fetchMyPRs(): Promise<MyPullRequest[]> {
           additions,
           deletions,
           reviewDecision: null,
+          inMergeQueue: false,
         };
       }),
   );
+
+  // Batch-fetch merge queue status via GraphQL
+  try {
+    const grouped = new Map<string, { owner: string; repo: string; numbers: number[] }>();
+    for (const pr of prs) {
+      const key = pr.repoFullName;
+      if (!grouped.has(key)) {
+        const [owner, repo] = key.split('/');
+        grouped.set(key, { owner, repo, numbers: [] });
+      }
+      grouped.get(key)!.numbers.push(pr.number);
+    }
+
+    // Build a single GraphQL query with aliased fields
+    const fragments: string[] = [];
+    const prKeyMap: string[] = []; // maps alias → "owner/repo#number"
+    let idx = 0;
+    for (const [, { owner, repo, numbers }] of grouped) {
+      for (const num of numbers) {
+        const alias = `pr${idx}`;
+        fragments.push(
+          `${alias}: repository(owner: "${owner}", name: "${repo}") { pullRequest(number: ${num}) { number mergeQueueEntry { position } } }`
+        );
+        prKeyMap.push(`${owner}/${repo}#${num}`);
+        idx++;
+      }
+    }
+
+    if (fragments.length > 0) {
+      const query = `query { ${fragments.join('\n')} }`;
+      const result = await octokit.graphql<Record<string, { pullRequest: { number: number; mergeQueueEntry: { position: number } | null } }>>(query);
+
+      const inQueueSet = new Set<string>();
+      for (let i = 0; i < prKeyMap.length; i++) {
+        const data = result[`pr${i}`];
+        if (data?.pullRequest?.mergeQueueEntry) {
+          inQueueSet.add(prKeyMap[i]);
+        }
+      }
+
+      for (const pr of prs) {
+        pr.inMergeQueue = inQueueSet.has(`${pr.repoFullName}#${pr.number}`);
+      }
+    }
+  } catch { /* degrade gracefully */ }
 
   return prs;
 }

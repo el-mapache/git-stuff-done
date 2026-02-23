@@ -66,6 +66,7 @@ export const DEMO_PRS = [
     additions: 450,
     deletions: 120,
     reviewDecision: 'APPROVED',
+    inMergeQueue: true,
   },
   {
     id: 102,
@@ -80,6 +81,7 @@ export const DEMO_PRS = [
     additions: 15,
     deletions: 5,
     reviewDecision: null,
+    inMergeQueue: false,
   },
 ];
 

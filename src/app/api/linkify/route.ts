@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTodayDate, readLog, writeLog, isValidDate } from '@/lib/files';
-import { enrichWorkLog } from '@/lib/copilot';
+import { linkifyWorkLog } from '@/lib/copilot';
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,27 +9,26 @@ export async function POST(request: NextRequest) {
     if (!isValidDate(date)) {
       return NextResponse.json({ error: 'Invalid date format' }, { status: 400 });
     }
-    console.log("[enrich] Enriching log for", date);
+    console.log("[linkify] Linkifying log for", date);
 
     const raw = await readLog(date);
     if (!raw.trim()) {
-      console.log("[enrich] No log content for", date);
+      console.log("[linkify] No log content for", date);
       return NextResponse.json(
-        { success: false, message: 'No log content to enrich' },
+        { success: false, message: 'No log content to linkify' },
         { status: 400 },
       );
     }
 
-    console.log("[enrich] Raw log:", raw.length, "chars — calling AI...");
-    const content = await enrichWorkLog(raw);
-    // Write enriched content back to the same log file
+    console.log("[linkify] Raw log:", raw.length, "chars — linkifying...");
+    const content = await linkifyWorkLog(raw);
     await writeLog(date, content);
-    console.log("[enrich] Done — enriched log:", content.length, "chars");
+    console.log("[linkify] Done — linkified log:", content.length, "chars");
 
     return NextResponse.json({ success: true, content });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error("[enrich] Error:", message);
+    console.error("[linkify] Error:", message);
     return NextResponse.json(
       { success: false, message },
       { status: 500 },

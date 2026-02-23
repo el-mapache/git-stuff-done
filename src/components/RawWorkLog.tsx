@@ -28,7 +28,7 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
   const currentDate = date ?? getTodayLocal();
   const [content, setContent] = useState('');
   const [status, setStatus] = useState<SaveStatus>('idle');
-  const [enriching, setEnriching] = useState(false);
+  const [linkifying, setLinkifying] = useState(false);
   const [viewMode, setViewMode] = useState<'edit' | 'preview'>('edit');
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestContentRef = useRef(content);
@@ -70,22 +70,22 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
     }
   }, [currentDate]);
 
-  const handleEnrich = async () => {
-    setEnriching(true);
+  const handleLinkify = async () => {
+    setLinkifying(true);
 
     if (isDemo) {
       setTimeout(() => {
         setContent(DEMO_RICH_LOG_CONTENT);
         latestContentRef.current = DEMO_RICH_LOG_CONTENT;
-        setEnriching(false);
+        setLinkifying(false);
       }, 1500);
       return;
     }
 
-    // Save first, then enrich
+    // Save first, then linkify
     await save(latestContentRef.current);
     try {
-      const res = await fetch('/api/enrich', {
+      const res = await fetch('/api/linkify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ date: currentDate }),
@@ -97,7 +97,7 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
         setStatus('saved');
       }
     } finally {
-      setEnriching(false);
+      setLinkifying(false);
     }
   };
 
@@ -250,12 +250,12 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
             {viewMode === 'edit' ? '👁️ Preview' : '✏️ Edit'}
           </button>
           <button
-            onClick={handleEnrich}
-            disabled={enriching || !content.trim()}
-            title={isDemo ? 'Enrich with AI (Demo)' : 'Enrich with AI'}
+            onClick={handleLinkify}
+            disabled={linkifying || !content.trim()}
+            title="Resolve GitHub links to their issue and PR titles"
             className="rounded-lg bg-accent px-2.5 py-1 text-xs font-semibold text-accent-foreground transition hover:opacity-80 disabled:opacity-40"
           >
-            {enriching ? '🪄 Enriching…' : '🪄 Enrich'}
+            {linkifying ? '🪄 Linkifying…' : '🪄 Linkify'}
           </button>
         </div>
       </div>

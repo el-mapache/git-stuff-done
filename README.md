@@ -1,6 +1,6 @@
 # git-stuff-done ✨
 
-**git-stuff-done** is your personal developer dashboard designed to keep you in the flow. It combines a distraction-free markdown editor for your daily work logs with AI superpowers. Automatically track your work, enrich your notes with context from GitHub, manage your PRs and notifications, and generate standup summaries—all without leaving your local environment. It's like a flight recorder for your engineering day.
+**git-stuff-done** is your personal developer dashboard designed to keep you in the flow. It combines a distraction-free markdown editor for your daily work logs with AI superpowers. Track your work, manage your PRs and notifications, and generate standup summaries—all without leaving your local environment.
 
 | Light Mode |
 | :---: |
@@ -18,13 +18,14 @@
 
 - **📝 Work Log Editor** — Write markdown with smart bullet points (Tab to indent, Enter to continue). Auto-saves as you type. Toggle between **Edit** and **Preview** modes to see your rendered markdown.
 - **📅 Date Navigation** — Browse past logs with a calendar picker. Dates that have content show a dot indicator. Use ← / → to step day by day, or click **Today** to jump back.
-- **🪄 AI Enrichment** — Click **🪄 Enrich** to resolve GitHub links to titles and expand bullet points via the Copilot SDK. Updates the log in-place.
+- **🪄 Linkify** — Click **🪄 Linkify** to resolve bare GitHub URLs to titled markdown links. Updates the log in-place.
 - **📊 Work Log Summary** — Generate AI-powered summaries of your work logs for daily standups or weekly reports. Choose the AI model, pick a date range, and **save summaries** directly to your repo in `summaries/`.
 - **✅ TODO List** — Manual TODOs with inline editing + AI-suggested action items based on your work log.
-- **🔀 My PRs** — Live feed of your open PRs (including drafts) in your GitHub org. Click the insert button on any PR to paste its link at the cursor in your work log.
+- **🔀 My PRs** — Live feed of your open PRs (including drafts and merge queue status) in your GitHub org. Click the insert button on any PR to paste its link at the cursor in your work log.
 - **🔔 Notifications** — Filtered GitHub notifications: reviews requested, mentions, assignments, and activity on your issues/PRs. Click the insert button to paste a link at the cursor.
 - **🚀 Auto-commit & Push** — Hourly auto-commit of your logs and TODOs to a git repo, with push to remote.
 - **⚙️ Settings** — Ignore noisy repos in notifications.
+- **▤ Layout modes** — Toggle between grid (2-column) and column (single-column) layouts. Hide individual panels and restore them from the ☰ menu. Preferences are saved in localStorage.
 - **🌗 Dark Mode** — First-class support for both light and dark themes.
 
 ## Prerequisites
@@ -94,7 +95,7 @@
 ## How It Works
 
 - **Storage:** Daily logs are saved as `logs/YYYY-MM-DD.md`. Summaries are saved in `summaries/YYYY-MM-DD-{type}.md`. TODOs live in `data/todos.json`. Settings in `data/config.json`.
-- **AI Enrichment:** Click **🪄 Enrich** in the log panel. Uses `@github/copilot-sdk` (via Copilot CLI) to resolve GitHub links to issue/PR titles and expand bullet points. Saves the enriched result back to the same file.
+- **Linkify:** Click **🪄 Linkify** in the log panel. Resolves bare GitHub URLs to titled markdown links (e.g. `[Fix auth bug (#123)](url)`). Saves the result back to the same file.
 - **Auto-commit:** Every hour while the app is running, changes to `logs/`, `summaries/`, and `data/` are committed and pushed. You can also trigger a manual commit via the 🚀 button.
 - **Timezone:** All dates use America/Los_Angeles (Pacific Time). Edit `getTodayDate()` in `src/lib/files.ts` to change.
 
@@ -102,7 +103,7 @@
 
 - Next.js 16 (App Router) + TypeScript
 - Tailwind CSS v4
-- `@github/copilot-sdk` for AI enrichment
+- `@github/copilot-sdk` for AI summaries
 - Space Grotesk + JetBrains Mono fonts
 - Octokit for GitHub API
 - react-resizable-panels for layout

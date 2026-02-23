@@ -71,9 +71,12 @@ function notificationUrl(n: Notification): string {
   return `https://github.com/${n.repoFullName}`;
 }
 
+// Module-level cache to survive remounts (e.g. layout switches)
+let _notifCache: Notification[] | null = null;
+
 export default function GitHubNotifications({ isDemo = false, onInsert, refreshTrigger }: { isDemo?: boolean; onInsert?: (text: string) => void; refreshTrigger?: number }) {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [notifications, setNotifications] = useState<Notification[]>(_notifCache ?? []);
+  const [loading, setLoading] = useState(_notifCache === null);
   const abortRef = useRef<AbortController | null>(null);
 
   const refresh = useCallback(async () => {
@@ -89,6 +92,7 @@ export default function GitHubNotifications({ isDemo = false, onInsert, refreshT
       const res = await fetch('/api/notifications', { signal: controller.signal });
       const data: Notification[] = await res.json();
       setNotifications(data);
+      _notifCache = data;
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return;
       // keep existing data on error

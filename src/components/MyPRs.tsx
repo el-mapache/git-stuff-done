@@ -15,6 +15,7 @@ type PullRequest = {
   updatedAt: string;
   additions: number;
   deletions: number;
+  inMergeQueue: boolean;
 };
 
 function timeAgo(dateString: string): string {
@@ -28,9 +29,12 @@ function timeAgo(dateString: string): string {
   return `${days}d ago`;
 }
 
+// Module-level cache to survive remounts (e.g. layout switches)
+let _prCache: PullRequest[] | null = null;
+
 export default function MyPRs({ isDemo = false, onInsert }: { isDemo?: boolean; onInsert?: (text: string) => void }) {
-  const [prs, setPrs] = useState<PullRequest[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [prs, setPrs] = useState<PullRequest[]>(_prCache ?? []);
+  const [loading, setLoading] = useState(_prCache === null);
   const abortRef = useRef<AbortController | null>(null);
 
   const refresh = useCallback(async () => {
@@ -46,6 +50,7 @@ export default function MyPRs({ isDemo = false, onInsert }: { isDemo?: boolean; 
       const res = await fetch('/api/prs', { signal: controller.signal });
       const data: PullRequest[] = await res.json();
       setPrs(data);
+      _prCache = data;
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return;
       // keep existing data on error
@@ -105,6 +110,11 @@ export default function MyPRs({ isDemo = false, onInsert }: { isDemo?: boolean; 
                         {pr.draft && (
                           <span className="mr-1.5 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
                             DRAFT
+                          </span>
+                        )}
+                        {pr.inMergeQueue && (
+                          <span className="mr-1.5 rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-accent-foreground">
+                            QUEUED
                           </span>
                         )}
                         {pr.title}

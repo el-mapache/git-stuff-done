@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTheme } from 'next-themes';
 import { useSearchParams } from 'next/navigation';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels';
@@ -11,6 +12,30 @@ import GitHubNotifications from './GitHubNotifications';
 import SummaryModal from './SummaryModal';
 import CalendarPicker from './CalendarPicker';
 import { GITHUB_ORG } from '@/lib/constants';
+
+type PanelId = 'log' | 'todos' | 'prs' | 'notifs';
+type LayoutMode = 'grid' | 'column';
+
+const PANEL_LABELS: Record<PanelId, string> = {
+  log: '📝 Work Log',
+  todos: '✅ TODOs',
+  prs: '🔀 My PRs',
+  notifs: '🔔 Notifications',
+};
+const ALL_PANELS: PanelId[] = ['log', 'todos', 'prs', 'notifs'];
+
+function loadLayout(): LayoutMode {
+  if (typeof window === 'undefined') return 'grid';
+  return (localStorage.getItem('gsd-layout') as LayoutMode) || 'grid';
+}
+function loadVisiblePanels(): Set<PanelId> {
+  if (typeof window === 'undefined') return new Set(ALL_PANELS);
+  try {
+    const stored = localStorage.getItem('gsd-visible-panels');
+    if (stored) return new Set(JSON.parse(stored) as PanelId[]);
+  } catch { /* ignore */ }
+  return new Set(ALL_PANELS);
+}
 
 function todayISO() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
@@ -27,6 +52,63 @@ export default function Dashboard() {
   const [date, setDate] = useState(todayISO);
   const [showSummary, setShowSummary] = useState(false);
   const insertAtCursorRef = useRef<((text: string) => void) | null>(null);
+
+  // Layout & panel visibility
+  const [layout, setLayout] = useState<LayoutMode>(loadLayout);
+  const [visiblePanels, setVisiblePanels] = useState<Set<PanelId>>(loadVisiblePanels);
+  const [panelMenuOpen, setPanelMenuOpen] = useState(false);
+  const panelMenuBtnRef = useRef<HTMLButtonElement>(null);
+  const panelMenuRef = useRef<HTMLDivElement>(null);
+  const [panelMenuPos, setPanelMenuPos] = useState({ top: 0, left: 0 });
+
+  function toggleLayout() {
+    const next: LayoutMode = layout === 'grid' ? 'column' : 'grid';
+    setLayout(next);
+    localStorage.setItem('gsd-layout', next);
+  }
+
+  function togglePanel(id: PanelId) {
+    setVisiblePanels((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      localStorage.setItem('gsd-visible-panels', JSON.stringify([...next]));
+      return next;
+    });
+  }
+
+  function hidePanel(id: PanelId) {
+    setVisiblePanels((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      localStorage.setItem('gsd-visible-panels', JSON.stringify([...next]));
+      return next;
+    });
+  }
+
+  // Auto-switch to column layout on narrow screens
+  useEffect(() => {
+    function handleResize() {
+      if (window.innerWidth < 1024 && layout === 'grid') {
+        setLayout('column');
+      }
+    }
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [layout]);
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (
+        panelMenuRef.current && !panelMenuRef.current.contains(e.target as Node) &&
+        panelMenuBtnRef.current && !panelMenuBtnRef.current.contains(e.target as Node)
+      ) {
+        setPanelMenuOpen(false);
+      }
+    }
+    if (panelMenuOpen) document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [panelMenuOpen]);
 
   // Avoid hydration mismatch
   useEffect(() => {
@@ -99,16 +181,16 @@ export default function Dashboard() {
   return (
     <div className="flex h-screen flex-col bg-background text-foreground transition-colors duration-300">
       {/* Header */}
-      <header className="flex shrink-0 items-center justify-between border-b border-border bg-card/70 backdrop-blur-sm px-6 py-3">
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-y-2 border-b border-border bg-card/70 backdrop-blur-sm px-4 py-2 sm:px-6 sm:py-3">
         <div className="flex items-center gap-3">
-          <span className="text-lg font-bold tracking-tight bg-gradient-to-r from-primary to-pink-400 bg-clip-text text-transparent">✨ git stuff done</span>
+          <span className="text-base font-bold tracking-tight bg-gradient-to-r from-primary to-pink-400 bg-clip-text text-transparent sm:text-lg">✨ git stuff done</span>
           {isDemo && (
             <span className="rounded-full bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-500 uppercase tracking-wide">
               Demo Mode
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 order-3 sm:order-none w-full justify-center sm:w-auto">
           <button
             onClick={() => shiftDate(-1)}
             aria-label="Previous day"
@@ -131,7 +213,7 @@ export default function Dashboard() {
             Today
           </button>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1 sm:gap-3">
           {commitMsg && (
             <span className="text-xs text-emerald-500 font-medium">{commitMsg}</span>
           )}
@@ -139,9 +221,9 @@ export default function Dashboard() {
             onClick={handleCommit}
             disabled={committing || isDemo}
             title={isDemo ? 'Disabled in demo mode' : 'Push to GitHub'}
-            className="rounded-xl bg-primary px-4 py-1.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90 disabled:opacity-50"
+            className="rounded-xl bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-foreground shadow-sm transition hover:opacity-90 disabled:opacity-50 sm:px-4 sm:text-sm"
           >
-            {committing ? 'Pushing…' : '🚀 Commit & Push'}
+            {committing ? '…' : <><span className="sm:hidden">🚀</span><span className="hidden sm:inline">🚀 Commit &amp; Push</span></>}
           </button>
           <button
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
@@ -165,8 +247,56 @@ export default function Dashboard() {
           >
             ⚙️
           </button>
+          <button
+            onClick={toggleLayout}
+            className="rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
+            aria-label="Toggle layout"
+            title={layout === 'grid' ? 'Switch to column layout' : 'Switch to grid layout'}
+          >
+            {layout === 'grid' ? '▤' : '▥'}
+          </button>
+          <button
+            ref={panelMenuBtnRef}
+            onClick={() => {
+              if (!panelMenuOpen && panelMenuBtnRef.current) {
+                const rect = panelMenuBtnRef.current.getBoundingClientRect();
+                setPanelMenuPos({ top: rect.bottom + 8, left: rect.right });
+              }
+              setPanelMenuOpen((o) => !o);
+            }}
+            className="rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
+            aria-label="Toggle panels"
+            title="Show/hide panels"
+          >
+            ☰
+          </button>
         </div>
       </header>
+
+      {/* Panel visibility dropdown (portal) */}
+      {typeof document !== 'undefined' && panelMenuOpen
+        ? createPortal(
+            <div
+              ref={panelMenuRef}
+              style={{ position: 'fixed', top: panelMenuPos.top, left: panelMenuPos.left, transform: 'translateX(-100%)', zIndex: 9999 }}
+              className="w-48 rounded-xl border border-border bg-popover shadow-xl p-2 select-none"
+            >
+              <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Panels</p>
+              {ALL_PANELS.map((id) => (
+                <label key={id} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={visiblePanels.has(id)}
+                    onChange={() => togglePanel(id)}
+                    className="accent-primary"
+                  />
+                  <span className="text-foreground">{PANEL_LABELS[id]}</span>
+                </label>
+              ))}
+            </div>,
+            document.body,
+          )
+        : null}
 
       <SummaryModal
         isOpen={showSummary}
@@ -207,42 +337,136 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Resizable Grid: Left (Log + TODOs) | Right (PRs + Notifications) */}
-      <PanelGroup orientation="horizontal" className="min-h-0 flex-1 p-3">
-        {/* Left column: Log on top, TODOs on bottom */}
-        <Panel defaultSize={55} minSize={30}>
-          <PanelGroup orientation="vertical">
-            <Panel defaultSize={60} minSize={20}>
-              <div className="h-full overflow-auto rounded-2xl border border-border bg-card/50 backdrop-blur-sm p-4 shadow-sm transition-colors">
-                <RawWorkLog date={date} isDemo={isDemo} onRegisterInsert={(fn) => { insertAtCursorRef.current = fn; }} />
-              </div>
-            </Panel>
-            <PanelResizeHandle className="my-1 h-1.5 rounded-full transition hover:bg-accent active:bg-primary/50" />
-            <Panel defaultSize={40} minSize={15}>
-              <div className="h-full overflow-auto rounded-2xl border border-border bg-card/50 backdrop-blur-sm p-4 shadow-sm transition-colors">
-                <TodoList date={date} isDemo={isDemo} />
-              </div>
-            </Panel>
-          </PanelGroup>
-        </Panel>
-        <PanelResizeHandle className="mx-1 w-1.5 rounded-full transition hover:bg-accent active:bg-primary/50" />
-        {/* Right column: PRs on top, Notifications on bottom */}
-        <Panel defaultSize={45} minSize={25}>
-          <PanelGroup orientation="vertical">
-            <Panel defaultSize={50} minSize={15}>
-              <div className="h-full overflow-auto rounded-2xl border border-border bg-card/50 backdrop-blur-sm p-4 shadow-sm transition-colors">
-                <MyPRs isDemo={isDemo} onInsert={(text) => insertAtCursorRef.current?.(text)} />
-              </div>
-            </Panel>
-            <PanelResizeHandle className="my-1 h-1.5 rounded-full transition hover:bg-accent active:bg-primary/50" />
-            <Panel defaultSize={50} minSize={15}>
-              <div className="h-full overflow-auto rounded-2xl border border-border bg-card/50 backdrop-blur-sm p-4 shadow-sm transition-colors">
-                <GitHubNotifications refreshTrigger={notifsKey} isDemo={isDemo} onInsert={(text) => insertAtCursorRef.current?.(text)} />
-              </div>
-            </Panel>
-          </PanelGroup>
-        </Panel>
-      </PanelGroup>
+      {/* Panel layout */}
+      {renderPanels()}
     </div>
   );
+
+  function panelCard(id: PanelId, children: React.ReactNode) {
+    return (
+      <div className="group/card relative h-full">
+        <button
+          onClick={() => hidePanel(id)}
+          className="absolute -right-1 -top-1 z-10 rounded-full border border-border bg-card p-0.5 text-muted-foreground opacity-0 shadow-sm transition hover:bg-muted hover:text-foreground group-hover/card:opacity-100"
+          aria-label={`Hide ${PANEL_LABELS[id]}`}
+          title={`Hide ${PANEL_LABELS[id]}`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+          </svg>
+        </button>
+        <div className="h-full overflow-auto rounded-2xl border border-border bg-card/50 backdrop-blur-sm p-4 shadow-sm transition-colors">
+          {children}
+        </div>
+      </div>
+    );
+  }
+
+  function panelContent(id: PanelId) {
+    switch (id) {
+      case 'log': return panelCard(id, <RawWorkLog date={date} isDemo={isDemo} onRegisterInsert={(fn) => { insertAtCursorRef.current = fn; }} />);
+      case 'todos': return panelCard(id, <TodoList date={date} isDemo={isDemo} />);
+      case 'prs': return panelCard(id, <MyPRs isDemo={isDemo} onInsert={(text) => insertAtCursorRef.current?.(text)} />);
+      case 'notifs': return panelCard(id, <GitHubNotifications refreshTrigger={notifsKey} isDemo={isDemo} onInsert={(text) => insertAtCursorRef.current?.(text)} />);
+    }
+  }
+
+  function renderPanels() {
+    const visible = ALL_PANELS.filter((id) => visiblePanels.has(id));
+    const panelKey = visible.join(',');
+    if (visible.length === 0) {
+      return (
+        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+          All panels hidden — use <button onClick={() => setPanelMenuOpen(true)} className="mx-1 underline hover:text-foreground">☰</button> to show them
+        </div>
+      );
+    }
+
+    if (layout === 'column') {
+      return (
+        <PanelGroup key={`col-${visible.join(',')}`} orientation="vertical" className="min-h-0 flex-1 p-3">
+          {visible.map((id, i) => (
+            <Fragment key={id}>
+              {i > 0 && <PanelResizeHandle className="my-1 h-1.5 rounded-full transition hover:bg-accent active:bg-primary/50" />}
+              <Panel defaultSize={100 / visible.length} minSize={10}>
+                {panelContent(id)}
+              </Panel>
+            </Fragment>
+          ))}
+        </PanelGroup>
+      );
+    }
+
+    // Grid layout: left column (log, todos), right column (prs, notifs)
+    const leftPanels = (['log', 'todos'] as PanelId[]).filter((id) => visiblePanels.has(id));
+    const rightPanels = (['prs', 'notifs'] as PanelId[]).filter((id) => visiblePanels.has(id));
+
+    // If one side is empty, show only the other
+    if (leftPanels.length === 0 && rightPanels.length > 0) {
+      return (
+        <PanelGroup key={`grid-r-${rightPanels.join(',')}`} orientation="vertical" className="min-h-0 flex-1 p-3">
+          {rightPanels.map((id, i) => (
+            <Fragment key={id}>
+              {i > 0 && <PanelResizeHandle className="my-1 h-1.5 rounded-full transition hover:bg-accent active:bg-primary/50" />}
+              <Panel defaultSize={100 / rightPanels.length} minSize={15}>
+                {panelContent(id)}
+              </Panel>
+            </Fragment>
+          ))}
+        </PanelGroup>
+      );
+    }
+    if (rightPanels.length === 0 && leftPanels.length > 0) {
+      return (
+        <PanelGroup key={`grid-l-${leftPanels.join(',')}`} orientation="vertical" className="min-h-0 flex-1 p-3">
+          {leftPanels.map((id, i) => (
+            <Fragment key={id}>
+              {i > 0 && <PanelResizeHandle className="my-1 h-1.5 rounded-full transition hover:bg-accent active:bg-primary/50" />}
+              <Panel defaultSize={100 / leftPanels.length} minSize={15}>
+                {panelContent(id)}
+              </Panel>
+            </Fragment>
+          ))}
+        </PanelGroup>
+      );
+    }
+
+    return (
+      <PanelGroup key={`grid-${visible.join(',')}`} orientation="horizontal" className="min-h-0 flex-1 p-3">
+        <Panel defaultSize={55} minSize={30}>
+          {leftPanels.length === 1 ? (
+            panelContent(leftPanels[0])
+          ) : (
+            <PanelGroup orientation="vertical">
+              {leftPanels.map((id, i) => (
+                <Fragment key={id}>
+                  {i > 0 && <PanelResizeHandle className="my-1 h-1.5 rounded-full transition hover:bg-accent active:bg-primary/50" />}
+                  <Panel defaultSize={i === 0 ? 60 : 40} minSize={15}>
+                    {panelContent(id)}
+                  </Panel>
+                </Fragment>
+              ))}
+            </PanelGroup>
+          )}
+        </Panel>
+        <PanelResizeHandle className="mx-1 w-1.5 rounded-full transition hover:bg-accent active:bg-primary/50" />
+        <Panel defaultSize={45} minSize={25}>
+          {rightPanels.length === 1 ? (
+            panelContent(rightPanels[0])
+          ) : (
+            <PanelGroup orientation="vertical">
+              {rightPanels.map((id, i) => (
+                <Fragment key={id}>
+                  {i > 0 && <PanelResizeHandle className="my-1 h-1.5 rounded-full transition hover:bg-accent active:bg-primary/50" />}
+                  <Panel defaultSize={50} minSize={15}>
+                    {panelContent(id)}
+                  </Panel>
+                </Fragment>
+              ))}
+            </PanelGroup>
+          )}
+        </Panel>
+      </PanelGroup>
+    );
+  }
 }
