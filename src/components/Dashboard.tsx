@@ -43,7 +43,7 @@ function todayISO() {
 
 export default function Dashboard() {
   const searchParams = useSearchParams();
-  const isDemo = searchParams.get('demo') === 'true';
+  const isDemo = searchParams.get('demo') === 'true' || process.env.NEXT_PUBLIC_DEMO === 'true';
 
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);

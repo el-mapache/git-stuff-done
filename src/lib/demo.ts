@@ -49,7 +49,7 @@ export const DEMO_TODOS: TodoItem[] = [
   { id: '1', title: 'Review PR #45 feedback', done: false, source: 'manual', createdAt: new Date().toISOString() },
   { id: '2', title: 'Update documentation for API endpoints', done: true, source: 'manual', createdAt: new Date().toISOString() },
   { id: '3', title: 'Schedule sync with design team', done: false, source: 'suggested', createdAt: new Date().toISOString() },
-  { id: '4', title: 'Investigate memory leak in worker', done: false, source: 'manual', createdAt: new Date().toISOString() },
+  { id: '4', title: 'Investigate memory leak in worker — see https://github.com/acme/backend/issues/99', done: false, source: 'manual', createdAt: new Date().toISOString() },
 ];
 
 export const DEMO_PRS = [

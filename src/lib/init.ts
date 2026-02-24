@@ -1,8 +1,6 @@
-import { startScheduler } from "./scheduler";
-
 let initialized = false;
 
-if (typeof window === "undefined" && !initialized) {
+if (typeof window === "undefined" && !initialized && process.env.NEXT_PUBLIC_DEMO !== "true") {
   initialized = true;
-  startScheduler();
+  import("./scheduler").then(({ startScheduler }) => startScheduler());
 }

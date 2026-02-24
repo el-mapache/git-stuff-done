@@ -4,10 +4,9 @@
 
 <img width="1000" alt="image" src="https://github.com/user-attachments/assets/14825c4e-e2f9-4ba0-964d-336afcd26539" />
 
-
 ## Features
 
-- **📝 Work Log Editor** — Write markdown with smart bullet points (Tab to indent, Enter to continue). Auto-saves as you type. Toggle between **Edit** and **Preview** modes to see your rendered markdown.
+- **📝 Work Log Editor** — A rich hybrid editor. Type markdown naturally — headings, bold, lists, and links render inline as you type.
 - **📅 Date Navigation** — Browse past logs with a calendar picker. Dates that have content show a dot indicator. Use ← / → to step day by day, or click **Today** to jump back.
 - **🪄 Linkify** — Click **🪄 Linkify** to resolve bare GitHub URLs to titled markdown links. Updates the log in-place.
 - **📊 Work Log Summary** — Generate AI-powered summaries of your work logs for daily standups or weekly reports. Choose the AI model, pick a date range, and **save summaries** directly to your repo in `summaries/`.
@@ -94,6 +93,7 @@
 
 - Next.js 16 (App Router) + TypeScript
 - Tailwind CSS v4
+- Tiptap (ProseMirror) rich text editor
 - `@github/copilot-sdk` for AI summaries
 - Space Grotesk + JetBrains Mono fonts
 - Octokit for GitHub API
@@ -106,7 +106,7 @@
 | <img src="screenshots/lightmode.png" width="400" /> | <img src="screenshots/darkmode.png" width="400" /> |
 
 
-|  AI-Suggested TODOs ||
+| TODO List | AI-Suggested TODOs |
 | :---: | :---: |
 | <img src="screenshots/todos.png" width="400" /> | <img src="screenshots/ai-todos.png" width="400" /> |
 

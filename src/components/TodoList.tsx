@@ -3,6 +3,34 @@
 import { useCallback, useEffect, useState } from "react";
 import { DEMO_TODOS, DEMO_SUGGESTED_TODOS } from "@/lib/demo";
 
+/** Render text with bare URLs and markdown links as clickable <a> tags */
+function LinkifiedText({ text, className }: { text: string; className?: string }) {
+  // Match markdown links [text](url) or bare URLs
+  const parts = text.split(/(\[[^\]]+\]\(https?:\/\/[^\s)]+\)|https?:\/\/[^\s)]+)/g);
+  return (
+    <span className={className}>
+      {parts.map((part, i) => {
+        const mdMatch = part.match(/^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/);
+        if (mdMatch) {
+          return (
+            <a key={i} href={mdMatch[2]} target="_blank" rel="noopener noreferrer"
+              className="text-primary underline decoration-primary/40 hover:decoration-primary"
+              onClick={(e) => e.stopPropagation()}>{mdMatch[1]}</a>
+          );
+        }
+        if (/^https?:\/\//.test(part)) {
+          return (
+            <a key={i} href={part} target="_blank" rel="noopener noreferrer"
+              className="text-primary underline decoration-primary/40 hover:decoration-primary"
+              onClick={(e) => e.stopPropagation()}>{part}</a>
+          );
+        }
+        return part;
+      })}
+    </span>
+  );
+}
+
 type TodoItem = {
   id: string;
   title: string;
@@ -126,6 +154,10 @@ export default function TodoList({ date, isDemo = false }: { date?: string, isDe
     const title = editingTitle.trim();
     setEditingId(null);
     if (!title) return;
+    if (isDemo) {
+      setTodos(prev => prev.map(t => t.id === id ? { ...t, title } : t));
+      return;
+    }
     const res = await fetch("/api/todos", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -240,10 +272,10 @@ export default function TodoList({ date, isDemo = false }: { date?: string, isDe
                 ) : (
                   <span
                     onDoubleClick={() => !todo.done && startEdit(todo)}
-                    className={`flex-1 cursor-text text-sm text-foreground ${todo.done ? "line-through text-muted-foreground" : ""}`}
+                    className={`flex-1 cursor-text text-sm ${todo.done ? "line-through text-muted-foreground opacity-50" : ""}`}
                     title="Double-click to edit"
                   >
-                    {todo.title}
+                    <LinkifiedText text={todo.title} className="text-foreground" />
                   </span>
                 )}
                 

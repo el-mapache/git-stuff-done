@@ -13,8 +13,11 @@ function applyLinkification(
   let result = markdown;
   linkMap.forEach((info, url) => {
     const label = `${info.title} (#${info.number})`;
-    // Only replace bare URLs (not already inside markdown links)
-    const bare = new RegExp(`(?<!\\()${url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?!\\))`, 'g');
+    const escaped = url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Replace <url> autolinks (angle-bracket wrapped)
+    result = result.replace(new RegExp(`<${escaped}>`, 'g'), `[${label}](${url})`);
+    // Replace bare URLs (not already inside markdown links)
+    const bare = new RegExp(`(?<!\\()${escaped}(?!\\))`, 'g');
     result = result.replace(bare, `[${label}](${url})`);
   });
   return result;
