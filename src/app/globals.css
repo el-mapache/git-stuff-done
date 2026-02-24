@@ -28,6 +28,9 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
 
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -58,6 +61,9 @@
 
   --destructive: #ef4444; /* red-500 */
   --destructive-foreground: #ffffff;
+
+  --warning: #f59e0b; /* amber-500 */
+  --warning-foreground: #ffffff;
 
   --border: #e4e4e7; /* zinc-200 */
   --input: #e4e4e7;
@@ -90,12 +96,16 @@
   --destructive: #7f1d1d; /* red-900 */
   --destructive-foreground: #fecaca; /* red-100 */
 
+  --warning: #78350f; /* amber-900 */
+  --warning-foreground: #fef3c7; /* amber-100 */
+
   --border: #27272a; /* zinc-800 */
   --input: #27272a;
   --ring: #a78bfa; /* violet-400 */
 }
 
-html, body {
+html,
+body {
   height: 100%;
   overflow: hidden;
   background-color: var(--background);
@@ -103,7 +113,9 @@ html, body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
-textarea, code, pre {
+textarea,
+code,
+pre {
   font-family: var(--font-mono), ui-monospace, monospace;
 }
 
@@ -176,7 +188,11 @@ textarea, code, pre {
 .tiptap-editor .tiptap a {
   color: var(--accent-foreground);
   text-decoration: underline;
-  text-decoration-color: color-mix(in srgb, var(--accent-foreground) 30%, transparent);
+  text-decoration-color: color-mix(
+    in srgb,
+    var(--accent-foreground) 30%,
+    transparent
+  );
   cursor: pointer;
   transition: text-decoration-color 0.15s;
 }
@@ -241,7 +257,12 @@ textarea, code, pre {
   margin-top: 0.25rem;
 }
 
-.tiptap-editor .tiptap ul[data-type="taskList"] li label input[type="checkbox"] {
+.tiptap-editor
+  .tiptap
+  ul[data-type="taskList"]
+  li
+  label
+  input[type="checkbox"] {
   accent-color: var(--primary);
 }
 
