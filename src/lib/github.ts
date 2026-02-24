@@ -60,9 +60,7 @@ const GITHUB_URL_RE =
 const GITHUB_URL_RE_GLOBAL =
   /https:\/\/github\.com\/([^/]+)\/([^/]+)\/(issues|pull)\/(\d+)/g;
 
-export function parseGitHubUrl(
-  url: string,
-): {
+export function parseGitHubUrl(url: string): {
   owner: string;
   repo: string;
   number: number;
@@ -299,8 +297,10 @@ export async function fetchMyPRs(): Promise<MyPullRequest[]> {
 
         if (gql.mergeQueueEntry) {
           const mqState = gql.mergeQueueEntry.state;
-          pr.mergeQueueState = (mqState === 'LOCKED' || mqState === 'MERGEABLE')
-            ? 'merging' : 'queued';
+          pr.mergeQueueState =
+            mqState === "LOCKED" || mqState === "MERGEABLE"
+              ? "merging"
+              : "queued";
         }
         pr.reviewDecision = gql.reviewDecision ?? null;
 
@@ -338,9 +338,9 @@ export async function fetchMyPRs(): Promise<MyPullRequest[]> {
         // has commented AND the PR author hasn't replied after them.
         const isBot = (login: string) =>
           !login ||
-          login.endsWith('[bot]') ||
-          login === 'copilot' ||
-          login === 'github-copilot';
+          login.endsWith("[bot]") ||
+          login === "copilot" ||
+          login === "github-copilot";
 
         pr.unresolvedThreads = (gql.reviewThreads?.nodes ?? []).filter((t) => {
           if (t.isResolved) return false;
@@ -349,8 +349,8 @@ export async function fetchMyPRs(): Promise<MyPullRequest[]> {
           if (comments.length === 0) return false;
 
           // Check if any human reviewer (not the author, not a bot) participated
-          const hasReviewerComment = comments.some(c => {
-            const login = c.author?.login ?? '';
+          const hasReviewerComment = comments.some((c) => {
+            const login = c.author?.login ?? "";
             return !isBot(login) && login !== user;
           });
           if (!hasReviewerComment) return false;
@@ -358,7 +358,7 @@ export async function fetchMyPRs(): Promise<MyPullRequest[]> {
           // Find the last non-bot comment — if it's from the author, they already replied
           const lastHumanComment = [...comments]
             .reverse()
-            .find(c => !isBot(c.author?.login ?? ''));
+            .find((c) => !isBot(c.author?.login ?? ""));
           if (!lastHumanComment) return false;
           return lastHumanComment.author?.login !== user;
         }).length;
