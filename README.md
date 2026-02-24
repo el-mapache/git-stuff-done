@@ -11,7 +11,7 @@
 - **🪄 Linkify** — Click **🪄 Linkify** to resolve bare GitHub URLs to titled markdown links. Updates the log in-place.
 - **📊 Work Log Summary** — Generate AI-powered summaries of your work logs for daily standups or weekly reports. Choose the AI model, pick a date range, and **save summaries** directly to your repo in `summaries/`.
 - **✅ TODO List** — Manual TODOs with inline editing + AI-suggested action items based on your work log.
-- **🔀 My PRs** — Live feed of your open PRs (including drafts and merge queue status) in your GitHub org. Click the insert button on any PR to paste its link at the cursor in your work log.
+- **🔀 My PRs** — Live feed of your open PRs in your GitHub org with status badges: **Draft**, **Queued** / **Merging** (merge queue), **CI Failing** (required checks only), **Needs Review** (awaiting human review), and **unanswered comment count** (excludes bots and resolved threads). Click the insert button on any PR to paste its link at the cursor in your work log.
 - **🔔 Notifications** — Filtered GitHub notifications: reviews requested, mentions, assignments, and activity on your issues/PRs. Click the insert button to paste a link at the cursor.
 - **🚀 Auto-commit & Push** — Hourly auto-commit of your logs and TODOs to a git repo, with push to remote.
 - **⚙️ Settings** — Ignore noisy repos in notifications.
@@ -32,6 +32,7 @@
 1. **Fork, then clone your fork:**
 
    Click **Fork** on GitHub to create your own copy of this repo, then clone it:
+
    ```bash
    git clone https://github.com/<your-username>/git-stuff-done git-stuff-done
    cd git-stuff-done
@@ -49,9 +50,11 @@
    If your org requires SSO, click **Configure SSO** → **Authorize** for your org after creating the token.
 
 3. **Configure environment:**
+
    ```bash
    cp .env.example .env.local
    ```
+
    Edit `.env.local`:
    - `GITHUB_READ_TOKEN` — the PAT from step 2
    - `GITHUB_ORG` — your GitHub org name (filters notifications, PRs, links)
@@ -62,6 +65,7 @@
    Without `GIT_STUFF_DONE_DATA_DIR`, logs and TODOs are stored inside the app repo itself (your fork). To keep them separate:
 
    Create a new private repo on GitHub for your logs, then clone it:
+
    ```bash
    git clone https://github.com/<your-username>/my-work-logs ~/my-work-logs
    ```
@@ -76,11 +80,11 @@
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `GITHUB_ORG` | *(none)* | GitHub org to filter notifications, PRs, and links |
-| `GITHUB_READ_TOKEN` | *(falls back to `gh auth token`)* | Read-only GitHub token ([create one](https://github.com/settings/personal-access-tokens/new) with Issues, PRs, and Notifications read access) |
-| `GIT_STUFF_DONE_DATA_DIR` | `./` (app dir) | Path to a git repo where `logs/` and `data/` will be stored |
+| Variable                  | Default                           | Description                                                                                                                                   |
+| ------------------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GITHUB_ORG`              | _(none)_                          | GitHub org to filter notifications, PRs, and links                                                                                            |
+| `GITHUB_READ_TOKEN`       | _(falls back to `gh auth token`)_ | Read-only GitHub token ([create one](https://github.com/settings/personal-access-tokens/new) with Issues, PRs, and Notifications read access) |
+| `GIT_STUFF_DONE_DATA_DIR` | `./` (app dir)                    | Path to a git repo where `logs/` and `data/` will be stored                                                                                   |
 
 ## How It Works
 
@@ -101,19 +105,18 @@
 
 ## Screenshots
 
-| Light Mode | Dark Mode |
-| :---: | :---: |
+|                     Light Mode                      |                     Dark Mode                      |
+| :-------------------------------------------------: | :------------------------------------------------: |
 | <img src="screenshots/lightmode.png" width="400" /> | <img src="screenshots/darkmode.png" width="400" /> |
 
-
-| TODO List | AI-Suggested TODOs |
-| :---: | :---: |
+|                    TODO List                    |                 AI-Suggested TODOs                 |
+| :---------------------------------------------: | :------------------------------------------------: |
 | <img src="screenshots/todos.png" width="400" /> | <img src="screenshots/ai-todos.png" width="400" /> |
 
-| AI Summaries |  |
-| :---: | :---: |
+|                   AI Summaries                    |                                                          |
+| :-----------------------------------------------: | :------------------------------------------------------: |
 | <img src="screenshots/summary.png" width="400" /> | <img src="screenshots/summary-result.png" width="400" /> |
 
-| Calendar Picker | Alternate Layout |
-| :---: | :---: |
+|                  Calendar Picker                   |                    Alternate Layout                     |
+| :------------------------------------------------: | :-----------------------------------------------------: |
 | <img src="screenshots/calendar.png" width="400" /> | <img src="screenshots/column-layout.png" width="400" /> |
