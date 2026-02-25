@@ -168,15 +168,38 @@ export async function fetchMyPRs(): Promise<MyPullRequest[]> {
   const { data: userData } = await octokit.users.getAuthenticated();
   const user = userData.login;
 
-  const { data } = await octokit.search.issuesAndPullRequests({
-    q: `is:pr is:open author:${user} org:${GITHUB_ORG}`,
-    sort: "updated",
-    order: "desc",
-    per_page: 30,
-  });
+  // Fetch PRs authored by and assigned to the user (two queries, deduplicated)
+  const [authoredRes, assignedRes] = await Promise.all([
+    octokit.search.issuesAndPullRequests({
+      q: `is:pr is:open author:${user} org:${GITHUB_ORG}`,
+      sort: "updated",
+      order: "desc",
+      per_page: 30,
+    }),
+    octokit.search.issuesAndPullRequests({
+      q: `is:pr is:open assignee:${user} org:${GITHUB_ORG}`,
+      sort: "updated",
+      order: "desc",
+      per_page: 30,
+    }),
+  ]);
+
+  // Deduplicate by ID and sort by updatedAt
+  const seenIds = new Set<number>();
+  const allItems = [...authoredRes.data.items, ...assignedRes.data.items]
+    .filter((item) => {
+      if (seenIds.has(item.id)) return false;
+      seenIds.add(item.id);
+      return true;
+    })
+    .sort(
+      (a, b) =>
+        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+    )
+    .slice(0, 30);
 
   const prs = await Promise.all(
-    data.items
+    allItems
       .filter((item) => {
         const repo = item.repository_url.split("/").pop() ?? "";
         return !config.ignoredRepos.includes(repo);
