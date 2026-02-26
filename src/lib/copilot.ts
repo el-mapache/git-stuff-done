@@ -48,7 +48,12 @@ export async function callCopilot(
  * replacing bare URLs with titled markdown links.
  */
 export async function linkifyWorkLog(rawMarkdown: string): Promise<string> {
-  const urls = await extractGitHubUrls(rawMarkdown);
+  // Strip trailing slashes from GitHub issue/PR URLs before linkifying
+  const cleaned = rawMarkdown.replace(
+    /(https:\/\/github\.com\/[^/]+\/[^/]+\/(?:issues|pull)\/\d+)\//g,
+    '$1',
+  );
+  const urls = await extractGitHubUrls(cleaned);
   const linkMap = new Map<string, GitHubLinkInfo>();
 
   const results = await Promise.all(urls.map((u) => fetchLinkInfo(u)));
@@ -56,5 +61,5 @@ export async function linkifyWorkLog(rawMarkdown: string): Promise<string> {
     if (info) linkMap.set(info.url, info);
   }
 
-  return applyLinkification(rawMarkdown, linkMap);
+  return applyLinkification(cleaned, linkMap);
 }
