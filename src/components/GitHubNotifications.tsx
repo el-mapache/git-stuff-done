@@ -77,7 +77,11 @@ let _notifCache: Notification[] | null = null;
 export default function GitHubNotifications({ isDemo = false, onInsert, refreshTrigger }: { isDemo?: boolean; onInsert?: (text: string) => void; refreshTrigger?: number }) {
   const [notifications, setNotifications] = useState<Notification[]>(_notifCache ?? []);
   const [loading, setLoading] = useState(_notifCache === null);
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const abortRef = useRef<AbortController | null>(null);
+
+  const visibleNotifications = notifications.filter((n) => !hiddenIds.has(n.id));
+  const hiddenCount = notifications.length - visibleNotifications.length;
 
   const refresh = useCallback(async () => {
     try {
@@ -141,6 +145,17 @@ export default function GitHubNotifications({ isDemo = false, onInsert, refreshT
           </svg>
         </button>
       </div>
+      {hiddenCount > 0 && (
+        <div className="border-b border-border px-4 py-1.5 text-xs text-muted-foreground">
+          {hiddenCount} hidden —{' '}
+          <button
+            onClick={() => setHiddenIds(new Set())}
+            className="text-amber-500 hover:text-amber-400 transition-colors"
+          >
+            show all
+          </button>
+        </div>
+      )}
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto">
@@ -148,13 +163,13 @@ export default function GitHubNotifications({ isDemo = false, onInsert, refreshT
           <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
             Loading…
           </div>
-        ) : notifications.length === 0 ? (
+        ) : visibleNotifications.length === 0 ? (
           <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
             No notifications 🎉
           </div>
         ) : (
           <ul className="divide-y divide-border">
-            {notifications.map((n) => (
+            {visibleNotifications.map((n) => (
               <li
                 key={n.id}
                 className="group px-4 py-3 transition-colors hover:bg-muted/50"              >
@@ -186,6 +201,16 @@ export default function GitHubNotifications({ isDemo = false, onInsert, refreshT
                       <span className="shrink-0 text-xs text-muted-foreground whitespace-nowrap">
                         {timeAgo(n.updatedAt)}
                       </span>
+                      <button
+                        onClick={() => setHiddenIds((prev) => new Set(prev).add(n.id))}
+                        title="Dismiss notification"
+                        className="shrink-0 opacity-0 group-hover:opacity-100 rounded p-0.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+                        aria-label="Dismiss notification"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
+                          <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z" />
+                        </svg>
+                      </button>
                     </div>
                     <div className="mt-1 flex items-center gap-2">
                       <span className="truncate text-xs text-muted-foreground">
