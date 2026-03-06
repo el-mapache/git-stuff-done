@@ -15,6 +15,9 @@ interface SearchModalProps {
 }
 
 export default function SearchModal({ isOpen, onClose, isDemo = false }: SearchModalProps) {
+  const DEMO_QUERY = 'when did I meet with sarah?';
+  const DEMO_RESULT = "Based on your work logs, you last met with Sarah on **2026-02-27** (Thursday).\n\n**From that day's log:**\n- 1:1 with Sarah — discussed Q2 roadmap priorities and the upcoming analytics migration\n- Agreed to sync again after the design review next Wednesday\n\nBefore that, you also met on **2026-02-13** for sprint planning.";
+
   const [query, setQuery] = useState('');
   const [selectedModel, setSelectedModel] = useState(MODELS[0].value);
   const [loading, setLoading] = useState(false);
@@ -25,6 +28,7 @@ export default function SearchModal({ isOpen, onClose, isDemo = false }: SearchM
   const [canContinue, setCanContinue] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const demoInitRef = useRef(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -34,6 +38,18 @@ export default function SearchModal({ isOpen, onClose, isDemo = false }: SearchM
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
   }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen && isDemo && !demoInitRef.current) {
+      demoInitRef.current = true;
+      setQuery(DEMO_QUERY);
+      setResult(DEMO_RESULT);
+      setDaysSearched(7);
+    }
+    if (!isOpen) {
+      demoInitRef.current = false;
+    }
+  }, [isOpen, isDemo]);
 
   if (!isOpen) return null;
 

@@ -119,6 +119,10 @@
 | :-----------------------------------------------: | :------------------------------------------------------: |
 | <img src="screenshots/summary.png" width="400" /> | <img src="screenshots/summary-result.png" width="400" /> |
 
-|                  Calendar Picker                   |                    Alternate Layout                     |
+|                  AI Search                   |                    Alternate Layout                     |
+| :------------------------------------------: | :-----------------------------------------------------: |
+| <img src="screenshots/search-demo.png" width="400" /> | <img src="screenshots/column-layout.png" width="400" /> |
+
+|                  Calendar Picker                   |                                                         |
 | :------------------------------------------------: | :-----------------------------------------------------: |
-| <img src="screenshots/calendar.png" width="400" /> | <img src="screenshots/column-layout.png" width="400" /> |
+| <img src="screenshots/calendar.png" width="400" /> |                                                         |
