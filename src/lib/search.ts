@@ -19,11 +19,8 @@ export type QueryClassification = {
 export async function classifySearchQuery(
   query: string,
   todayDate: string,
-  _model: string = 'gpt-4.1',
+  model: string = 'gpt-4.1',
 ): Promise<QueryClassification> {
-  // Always use a fast model for classification — it's a simple task
-  // and we don't want classification latency to compound with search latency
-  const classificationModel = 'gpt-4.1';
   const prompt = `You are a query classifier. Given a user question about their work logs, classify the search intent.
 
 Today's date is ${todayDate}.
@@ -49,7 +46,7 @@ User question: "${query}"`;
     const result = await callCopilot(
       'You are a JSON classifier. Output only valid JSON, nothing else.',
       prompt,
-      classificationModel,
+      model,
     );
 
     const cleaned = result.trim().replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '');
