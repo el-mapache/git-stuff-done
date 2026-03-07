@@ -12,7 +12,8 @@ const MAX_LOOKBACK_DAYS = 365;
 const WINDOW_SIZE = 7;
 const MAX_ITERATIONS_PER_REQUEST = 7; // ~49 days per request to avoid timeouts
 const EXHAUSTIVE_CHUNK_DAYS = 60;
-const MAX_SINGLE_SHOT_CHARS = 200_000;
+const MAX_SINGLE_SHOT_CHARS = 80_000;
+const SEARCH_TIMEOUT_MS = 180_000; // 3 minutes for large search prompts
 
 const NEED_MORE_CONTEXT = 'NEED_MORE_CONTEXT';
 
@@ -126,7 +127,7 @@ async function searchExhaustive(
     // Single-shot: all logs fit in one call
     const searchWindow = `Searching ALL available logs (${daysSearched} days)`;
     const userPrompt = buildUserPrompt(query, logs, githubContext, searchWindow);
-    const result = await callCopilot(systemPrompt, userPrompt, model);
+    const result = await callCopilot(systemPrompt, userPrompt, model, SEARCH_TIMEOUT_MS);
 
     const answer =
       result.trim() === NEED_MORE_CONTEXT
@@ -150,7 +151,7 @@ async function searchExhaustive(
     const searchWindow = `Searching logs from ${chunkFirst} to ${chunkLast} (batch ${Math.floor(i / EXHAUSTIVE_CHUNK_DAYS) + 1})`;
 
     const userPrompt = buildUserPrompt(query, chunk, githubContext, searchWindow);
-    const result = await callCopilot(systemPrompt, userPrompt, model);
+    const result = await callCopilot(systemPrompt, userPrompt, model, SEARCH_TIMEOUT_MS);
 
     if (result.trim() !== NEED_MORE_CONTEXT) {
       partialFindings.push(result);
@@ -187,6 +188,7 @@ ${partialFindings.map((f, i) => `### Findings batch ${i + 1}\n${f}`).join('\n\n'
     buildSystemPrompt(todayDate, 'exhaustive'),
     mergePrompt,
     model,
+    SEARCH_TIMEOUT_MS,
   );
 
   return NextResponse.json({
@@ -228,7 +230,7 @@ async function searchDateBounded(
   const searchWindow = `Searching from ${startDate} to ${endDate} (${daysSearched} days)`;
   const systemPrompt = buildSystemPrompt(todayDate, 'date_bounded');
   const userPrompt = buildUserPrompt(query, logs, githubContext, searchWindow);
-  const result = await callCopilot(systemPrompt, userPrompt, model);
+  const result = await callCopilot(systemPrompt, userPrompt, model, SEARCH_TIMEOUT_MS);
 
   const answer =
     result.trim() === NEED_MORE_CONTEXT
@@ -304,7 +306,7 @@ async function searchRecentFirst(
       searchWindow,
     );
 
-    const result = await callCopilot(systemPrompt, userPrompt, model);
+    const result = await callCopilot(systemPrompt, userPrompt, model, SEARCH_TIMEOUT_MS);
 
     if (result.trim() === NEED_MORE_CONTEXT) {
       if (daysSearched >= MAX_LOOKBACK_DAYS) {
