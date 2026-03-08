@@ -9,13 +9,13 @@
 - **📝 Work Log Editor** — A rich hybrid editor. Type markdown naturally — headings, bold, lists, and links render inline as you type.
 - **📅 Date Navigation** — Browse past logs with a calendar picker. Dates that have content show a dot indicator. Use ← / → to step day by day, or click **Today** to jump back.
 - **🪄 Linkify** — Click **🪄 Linkify** to resolve bare GitHub URLs to titled markdown links. Updates the log in-place.
-- **📊 Work Log Summary** — Generate AI-powered summaries of your work logs for daily standups or weekly reports. Choose the AI model, pick a date range, and **save summaries** directly to your repo in `summaries/`.
-- **🔍 Natural Language Search** — AI-powered search across your work logs. Ask questions like "What did I work on last week?" or "Find all examples of pairing sessions." The search automatically classifies your query into one of three strategies:
-  - **Exhaustive** — queries like "find all examples of X" or "every time I mentioned Y" search through ALL available logs to find every instance.
-  - **Date-bounded** — queries with time constraints like "last two weeks" or "in February" search only the specified range.
-  - **Recent-first** — general queries progressively look back in 7-day increments (up to 365 days), ideal for "when did I last…" style questions with resumable deep lookback.
-
-  Follows GitHub links in your logs for additional context and never fabricates answers. Includes a model selector.
+- **✨ AI Assistant** — A unified modal (toolbar ✨ button) with two modes:
+  - **📊 Summarize** — Generate AI-powered summaries of your work logs for daily standups or weekly reports. Choose the AI model, pick a date range, and **save summaries** directly to your repo in `summaries/`.
+  - **🔍 Search** — Natural language search across your work logs. Ask questions like "What did I work on last week?" or "Find all examples of pairing sessions." The search automatically classifies your query into one of three strategies:
+    - **Exhaustive** — queries like "find all examples of X" search through ALL available logs.
+    - **Date-bounded** — queries with time constraints search only the specified range.
+    - **Recent-first** — general queries progressively look back in 7-day increments (up to 365 days), ideal for "when did I last…" style questions with resumable deep lookback.
+  - Follows GitHub links in your logs for additional context and never fabricates answers. Includes a model selector shared across both modes.
 - **✅ TODO List** — Manual TODOs with inline editing + AI-suggested action items based on your work log.
 - **🔀 My PRs** — Live feed of your open PRs (authored or assigned) in your GitHub org with status badges: **Copilot** (authored by Copilot, you're an assignee), **Draft**, **Queued** / **Merging** (merge queue), **CI Failing** (required checks only), **Needs Review** (awaiting human review), and **unanswered comment count** (excludes bots and resolved threads). Click the insert button on any PR to paste its link at the cursor in your work log.
 - **🐛 My Issues** — Open issues assigned to you across your GitHub org, showing labels (toggleable) and comment counts. Linked PRs appear as chips styled by state (open/draft/merged/closed). Click the insert button to paste a link at the cursor in your work log.
@@ -120,11 +120,11 @@
 | :---------------------------------------------: | :------------------------------------------------: |
 | <img src="screenshots/todos.png" width="400" /> | <img src="screenshots/ai-todos.png" width="400" /> |
 
-|                   AI Summaries                    |                                                          |
+|                AI Assistant — Summary             |                   AI Assistant — Result                  |
 | :-----------------------------------------------: | :------------------------------------------------------: |
 | <img src="screenshots/summary.png" width="400" /> | <img src="screenshots/summary-result.png" width="400" /> |
 
-|                  AI Search                   |                    Alternate Layout                     |
+|             AI Assistant — Search            |                    Alternate Layout                     |
 | :------------------------------------------: | :-----------------------------------------------------: |
 | <img src="screenshots/search-demo.png" width="400" /> | <img src="screenshots/column-layout.png" width="400" /> |
 
