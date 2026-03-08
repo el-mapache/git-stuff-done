@@ -47,7 +47,7 @@
   --popover: oklch(100% 0.003 316);
   --popover-foreground: oklch(17% 0.025 316);
 
-  --primary: oklch(40% 0.19 316);       /* Deep eggplant — rich, not blue */
+  --primary: oklch(40% 0.15 316);       /* Deep eggplant — slightly dialed back so text isn't electric */
   --primary-foreground: oklch(99% 0.003 316);
 
   --secondary: oklch(94% 0.016 316);    /* Soft mauve tint */
@@ -56,8 +56,8 @@
   --muted: oklch(93% 0.013 316);
   --muted-foreground: oklch(50% 0.03 316);
 
-  --accent: oklch(90% 0.038 316);       /* Warm mauve hover — reads as soft plum, not blue */
-  --accent-foreground: oklch(38% 0.18 316);
+  --accent: oklch(87% 0.065 316);       /* Clearly distinct from card white — reads as interactive */
+  --accent-foreground: oklch(35% 0.20 316);
 
   --destructive: oklch(55% 0.22 25);
   --destructive-foreground: oklch(99% 0.005 25);
