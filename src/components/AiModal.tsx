@@ -226,10 +226,10 @@ export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDe
     setSummaryError(null);
 
     try {
-      const prompt = DEFAULT_PROMPTS[selectedPromptIdx];
-      const slug = prompt.label === 'Custom'
-        ? 'custom-summary'
-        : prompt.label.toLowerCase().replace(/\s+/g, '-');
+      const matchedPrompt = DEFAULT_PROMPTS.find(p => p.value === customPrompt);
+      const slug = matchedPrompt && matchedPrompt.label !== 'Custom'
+        ? matchedPrompt.label.toLowerCase().replace(/\s+/g, '-')
+        : 'custom-summary';
 
       const filename = `${endDate}-${slug}.md`;
 
