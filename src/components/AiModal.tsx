@@ -1,0 +1,559 @@
+'use client';
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { X, AlertTriangle, Search } from 'lucide-react';
+
+const MODELS = [
+  { label: 'GPT 5.2', value: 'gpt-5.2' },
+  { label: 'GPT 4.1', value: 'gpt-4.1' },
+  { label: 'Claude 4.6 Sonnet', value: 'claude-sonnet-4.6' },
+];
+
+const DEFAULT_PROMPTS = [
+  { label: 'Daily Standup', value: 'Summarize my work for a daily standup meeting. Focus on what was completed, what is in progress, and any blockers.' },
+  { label: 'Weekly Report', value: 'Create a weekly report summarizing key achievements, PRs merged, and tasks completed. Group by project or topic.' },
+  { label: 'Detailed Changelog', value: 'List all technical changes, bug fixes, and refactors in a changelog format.' },
+  { label: 'Custom', value: '' },
+];
+
+interface AiModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  defaultTab: 'search' | 'summarize';
+  defaultDate: string;
+  isDemo?: boolean;
+}
+
+export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDemo = false }: AiModalProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Shared state
+  const [activeTab, setActiveTab] = useState<'search' | 'summarize'>(defaultTab);
+  const [selectedModel, setSelectedModel] = useState(MODELS[0].value);
+
+  // Search pane state
+  const DEMO_QUERY = 'when did I meet with sarah?';
+  const DEMO_RESULT = "Based on your work logs, you last met with Sarah on **2026-02-27** (Thursday).\n\n**From that day's log:**\n- 1:1 with Sarah — discussed Q2 roadmap priorities and the upcoming analytics migration\n- Agreed to sync again after the design review next Wednesday\n\nBefore that, you also met on **2026-02-13** for sprint planning.";
+
+  const [query, setQuery] = useState('');
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchResult, setSearchResult] = useState<string | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [daysSearched, setDaysSearched] = useState(0);
+  const [exhausted, setExhausted] = useState(false);
+  const [canContinue, setCanContinue] = useState(false);
+  const [searchMode, setSearchMode] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const demoInitRef = useRef(false);
+
+  // Summarize pane state
+  const [startDate, setStartDate] = useState(defaultDate);
+  const [endDate, setEndDate] = useState(defaultDate);
+  const [selectedPromptIdx, setSelectedPromptIdx] = useState(0);
+  const [customPrompt, setCustomPrompt] = useState(DEFAULT_PROMPTS[0].value);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [summaryResult, setSummaryResult] = useState<string | null>(null);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+
+  // --- Close / reset ---
+
+  const handleClose = useCallback(() => {
+    abortRef.current?.abort();
+    // Reset search state
+    setQuery('');
+    setSearchResult(null);
+    setSearchError(null);
+    setDaysSearched(0);
+    setExhausted(false);
+    setCanContinue(false);
+    setSearchMode(null);
+    setSearchLoading(false);
+    // Reset summarize state
+    setStartDate(defaultDate);
+    setEndDate(defaultDate);
+    setCustomPrompt(DEFAULT_PROMPTS[0].value);
+    setSelectedPromptIdx(0);
+    setSummaryResult(null);
+    setSummaryError(null);
+    setSummaryLoading(false);
+    setSaving(false);
+    onClose();
+  }, [defaultDate, onClose]);
+
+  // Sync activeTab when modal opens with a new defaultTab
+  useEffect(() => {
+    if (isOpen) setActiveTab(defaultTab);
+  }, [isOpen, defaultTab]);
+
+  // Escape handler
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose();
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [isOpen, handleClose]);
+
+  // Search demo init
+  useEffect(() => {
+    if (isOpen && isDemo && !demoInitRef.current) {
+      demoInitRef.current = true;
+      setQuery(DEMO_QUERY);
+      setSearchResult(DEMO_RESULT);
+      setDaysSearched(7);
+    }
+    if (!isOpen) {
+      demoInitRef.current = false;
+    }
+  }, [isOpen, isDemo]);
+
+  if (!isOpen) return null;
+
+  // --- Search logic ---
+
+  function todayISO() {
+    return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+  }
+
+  const handleSearch = async (offsetDays = 0) => {
+    if (!query.trim()) return;
+
+    setSearchLoading(true);
+    setSearchError(null);
+    setCanContinue(false);
+    if (offsetDays === 0) {
+      setSearchResult(null);
+      setDaysSearched(0);
+      setExhausted(false);
+      setSearchMode(null);
+    }
+
+    if (isDemo) {
+      setTimeout(() => {
+        setSearchResult("## Demo Search Result\n\nThis is a simulated search result. In a real environment, this would search through your work logs using AI.\n\n**Found in logs from 2026-03-01:**\n- Worked on authentication refactor\n- Fixed CI pipeline issues");
+        setDaysSearched(7);
+        setSearchLoading(false);
+      }, 1500);
+      return;
+    }
+
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    try {
+      const res = await fetch('/api/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: query.trim(),
+          model: selectedModel,
+          todayDate: todayISO(),
+          offsetDays,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) throw new Error('Search failed');
+      const data = await res.json();
+
+      setDaysSearched(data.daysSearched);
+      setExhausted(data.exhausted);
+      setSearchMode(data.searchMode ?? null);
+
+      if (data.answer) {
+        setSearchResult(data.answer);
+        setCanContinue(false);
+      } else {
+        setCanContinue(data.searchMode === 'recent_first' && !data.exhausted);
+        setSearchResult(null);
+      }
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') {
+        setSearchError('An error occurred while searching. Please try again.');
+      }
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  // --- Summarize logic ---
+
+  const generateSummary = async () => {
+    setSummaryLoading(true);
+    setSummaryError(null);
+    setSummaryResult(null);
+
+    if (isDemo) {
+      setTimeout(() => {
+        setSummaryResult("## Demo Summary\n\nThis is a generated summary of your work. In a real environment, this would be an AI-generated summary of your logs and pull requests.\n\n### Key Achievements\n- Implemented new features\n- Fixed critical bugs\n- Collaborated with the team\n\n### Next Steps\n- Deploy to production\n- Monitor performance");
+        setSummaryLoading(false);
+      }, 1500);
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startDate,
+          endDate,
+          prompt: customPrompt,
+          model: selectedModel,
+        }),
+      });
+
+      if (!res.ok) throw new Error('Failed to generate summary');
+      const data = await res.json();
+      setSummaryResult(data.summary);
+    } catch {
+      setSummaryError('An error occurred while generating the summary.');
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
+  const saveToRepo = async () => {
+    if (!summaryResult) return;
+    if (isDemo) {
+      alert("In demo mode, this would save to: summaries/" + endDate + "-summary.md");
+      return;
+    }
+    setSaving(true);
+    setSummaryError(null);
+
+    try {
+      const prompt = DEFAULT_PROMPTS[selectedPromptIdx];
+      const slug = prompt.label === 'Custom'
+        ? 'custom-summary'
+        : prompt.label.toLowerCase().replace(/\s+/g, '-');
+
+      const filename = `${endDate}-${slug}.md`;
+
+      const res = await fetch('/api/summary/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename, content: summaryResult }),
+      });
+
+      if (!res.ok) throw new Error('Failed to save summary');
+
+      const data = await res.json();
+      const msg = data.committed ? 'Saved and pushed to repo!' : 'Saved to disk (commit skipped/failed).';
+      alert(`${msg}\nFile: summaries/${filename}`);
+    } catch (err) {
+      console.error(err);
+      setSummaryError('Failed to save summary to repository.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const downloadMarkdown = () => {
+    if (!summaryResult) return;
+    const blob = new Blob([summaryResult], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `summary-${startDate}-to-${endDate}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const showLongSearchWarning = daysSearched > 60;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onMouseDown={(e) => { if (panelRef.current && !panelRef.current.contains(e.target as Node)) handleClose(); }}>
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="ai-modal-title" className="w-full max-w-2xl rounded-2xl bg-popover shadow-xl ring-1 ring-border max-h-[90vh] flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="border-b border-border px-6 pt-4 pb-0 bg-popover sticky top-0 z-10">
+          <div className="flex items-center justify-between pb-3">
+            <h2 id="ai-modal-title" className="text-lg font-semibold text-popover-foreground">AI Assistant</h2>
+            <button onClick={handleClose} aria-label="Close" className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-muted"><X className="h-4 w-4" aria-hidden="true" /></button>
+          </div>
+          {/* Tab bar */}
+          <div className="flex gap-6">
+            <button
+              onClick={() => setActiveTab('search')}
+              className={`pb-2 text-sm transition-colors ${activeTab === 'search' ? 'text-foreground border-b-2 border-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              Search
+            </button>
+            <button
+              onClick={() => setActiveTab('summarize')}
+              className={`pb-2 text-sm transition-colors ${activeTab === 'summarize' ? 'text-foreground border-b-2 border-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              Summarize
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          {/* ===== Search Pane ===== */}
+          <div className={activeTab === 'search' ? '' : 'hidden'}>
+            <div className="space-y-4">
+              {/* Query input */}
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Question</label>
+                <textarea
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey && !searchLoading) {
+                      e.preventDefault();
+                      handleSearch(0);
+                    }
+                  }}
+                  className="w-full h-20 rounded-xl border border-input bg-muted/50 px-3 py-2 text-sm text-foreground placeholder-muted-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/20 resize-none transition-all"
+                  placeholder='Ask a question about your work logs... (e.g. "What did I work on last week?")'
+                  disabled={searchLoading}
+                />
+              </div>
+
+              {/* Model selector */}
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">AI Model</label>
+                <select
+                  value={selectedModel}
+                  onChange={(e) => setSelectedModel(e.target.value)}
+                  disabled={searchLoading}
+                  className="w-full rounded-xl border border-input bg-muted/50 px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/20 transition-all cursor-pointer"
+                >
+                  {MODELS.map((m) => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Loading / Progress */}
+              {searchLoading && (
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/50 border border-border">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  <span className="text-sm text-muted-foreground">
+                    {searchMode === 'exhaustive'
+                      ? 'Searching all logs...'
+                      : searchMode === 'date_bounded'
+                        ? 'Searching specified date range...'
+                        : `Searching${daysSearched > 0 ? ` (looked back ${daysSearched} days so far)` : ''}...`}
+                  </span>
+                </div>
+              )}
+
+              {/* Long search warning */}
+              {showLongSearchWarning && !exhausted && (
+                <div className="text-sm text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 p-3 rounded-xl border border-amber-100 dark:border-amber-900/50 flex items-center gap-2">
+                  <span>⏳</span> Searching far back in history — this may take a while.
+                </div>
+              )}
+
+              {/* Continue searching prompt */}
+              {canContinue && !searchLoading && (
+                <div className="p-4 rounded-xl bg-muted/50 border border-border space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Searched the last {daysSearched} days but couldn&apos;t find a clear answer. Want to keep looking further back?
+                  </p>
+                  <button
+                    onClick={() => handleSearch(daysSearched)}
+                    className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-accent-foreground transition hover:opacity-80"
+                  >
+                    Keep Searching
+                  </button>
+                </div>
+              )}
+
+              {/* Result */}
+              {searchResult && (
+                <div className="mt-2 pt-4 border-t border-border">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-xs font-medium text-muted-foreground uppercase tracking-wider">Answer</label>
+                    <span className="text-[10px] text-muted-foreground">
+                      Searched {daysSearched} days
+                    </span>
+                  </div>
+                  <div className="rounded-xl border border-input bg-muted px-4 py-3 text-sm text-foreground whitespace-pre-wrap font-mono">
+                    {searchResult}
+                  </div>
+                </div>
+              )}
+
+              {/* Error */}
+              {searchError && (
+                <div className="text-sm text-destructive bg-destructive/10 p-4 rounded-xl border border-destructive/20 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" /> {searchError}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ===== Summarize Pane ===== */}
+          <div className={activeTab === 'summarize' ? '' : 'hidden'}>
+            <div className="space-y-6">
+              {/* Date Range */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="ai-summary-start-date" className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Start Date</label>
+                  <input
+                    id="ai-summary-start-date"
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full rounded-xl border border-input bg-muted/50 px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/20 transition-all"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="ai-summary-end-date" className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">End Date</label>
+                  <input
+                    id="ai-summary-end-date"
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full rounded-xl border border-input bg-muted/50 px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/20 transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="ai-summary-prompt-template" className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Prompt Template</label>
+                  <select
+                    id="ai-summary-prompt-template"
+                    value={selectedPromptIdx}
+                    onChange={(e) => {
+                      const idx = Number(e.target.value);
+                      setSelectedPromptIdx(idx);
+                      setCustomPrompt(DEFAULT_PROMPTS[idx].value);
+                    }}
+                    className="w-full rounded-xl border border-input bg-muted/50 px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/20 transition-all cursor-pointer"
+                  >
+                    {DEFAULT_PROMPTS.map((p, idx) => (
+                      <option key={idx} value={idx}>{p.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="ai-summary-model" className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">AI Model</label>
+                  <select
+                    id="ai-summary-model"
+                    value={selectedModel}
+                    onChange={(e) => setSelectedModel(e.target.value)}
+                    className="w-full rounded-xl border border-input bg-muted/50 px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/20 transition-all cursor-pointer"
+                  >
+                    {MODELS.map((m) => (
+                      <option key={m.value} value={m.value}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Custom Prompt Textarea */}
+              <div>
+                <label htmlFor="ai-summary-instructions" className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Instructions</label>
+                <textarea
+                  id="ai-summary-instructions"
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  className="w-full h-32 rounded-xl border border-input bg-muted/50 px-3 py-2 text-sm text-foreground placeholder-muted-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/20 resize-none transition-all"
+                  placeholder="Enter custom instructions for the summary..."
+                />
+              </div>
+
+              {/* Loading */}
+              {summaryLoading && (
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/50 border border-border">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  <span className="text-sm text-muted-foreground">Generating summary...</span>
+                </div>
+              )}
+
+              {/* Result Area */}
+              {summaryResult && (
+                <div className="mt-6 pt-6 border-t border-border">
+                  <label htmlFor="ai-summary-result" className="block text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">Generated Summary</label>
+                  <textarea
+                    id="ai-summary-result"
+                    readOnly
+                    value={summaryResult}
+                    className="w-full h-64 rounded-xl border border-input bg-muted px-4 py-3 text-sm text-foreground font-mono outline-none resize-none"
+                  />
+                </div>
+              )}
+
+              {/* Error */}
+              {summaryError && (
+                <div className="text-sm text-destructive bg-destructive/10 p-4 rounded-xl border border-destructive/20 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" /> {summaryError}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Footer — adapts based on active tab */}
+        <div className="border-t border-border px-6 py-4 flex justify-between items-center bg-popover sticky bottom-0 z-10">
+          {activeTab === 'search' ? (
+            <>
+              <div className="flex gap-2">
+                {searchResult && (
+                  <button
+                    onClick={() => navigator.clipboard.writeText(searchResult)}
+                    className="rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:shadow-sm border border-transparent hover:border-border transition-all"
+                  >
+                    Copy
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={() => handleSearch(0)}
+                disabled={searchLoading || !query.trim()}
+                className="rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {searchLoading ? 'Searching…' : <><Search className="h-3.5 w-3.5 inline-block mr-1.5" aria-hidden="true" />Search</>}
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="flex gap-2">
+                {summaryResult && (
+                  <>
+                    <button
+                      onClick={() => navigator.clipboard.writeText(summaryResult)}
+                      className="rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:shadow-sm border border-transparent hover:border-border transition-all"
+                    >
+                      Copy
+                    </button>
+                    <button
+                      onClick={downloadMarkdown}
+                      className="rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:shadow-sm border border-transparent hover:border-border transition-all"
+                    >
+                      Download .md
+                    </button>
+                    <button
+                      onClick={saveToRepo}
+                      disabled={saving}
+                      className="rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:shadow-sm border border-transparent hover:border-border transition-all disabled:opacity-50"
+                    >
+                      {saving ? 'Committing...' : 'Save & Commit'}
+                    </button>
+                  </>
+                )}
+              </div>
+              <button
+                onClick={generateSummary}
+                disabled={summaryLoading}
+                className="rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {summaryLoading ? 'Generating...' : 'Generate Summary'}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
