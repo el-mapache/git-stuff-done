@@ -188,7 +188,12 @@ export default function Dashboard() {
       {/* Header */}
       <header className="shrink-0 border-b border-border bg-card px-4 py-2 sm:px-6 sm:py-3 grid grid-cols-[1fr_auto_1fr] items-center gap-x-2">
         <div className="flex items-center gap-3">
-          <span className="text-base font-bold tracking-tight text-primary sm:text-xl">git stuff done</span>
+          <span
+            className="text-base font-black tracking-tight sm:text-xl select-none"
+            style={{ background: 'linear-gradient(90deg, #a855f7, #ec4899, #f97316, #eab308, #22c55e, #3b82f6, #a855f7)', backgroundSize: '200% auto', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', animation: 'logo-shimmer 4s linear infinite' }}
+          >
+            git stuff done
+          </span>
           {isDemo && (
             <span className="rounded-full bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-500 uppercase tracking-wide">
               Demo Mode

@@ -305,6 +305,12 @@ select:focus-visible {
   border-radius: 0.25rem;
 }
 
+/* Logo shimmer animation */
+@keyframes logo-shimmer {
+  0% { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+
 /* Panel entrance animation */
 @keyframes panel-in {
   from {
