@@ -31,6 +31,11 @@ jobs:
       - name: Remove API routes (unused in demo)
         run: rm -rf src/app/api
 
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          static_site_generator: next
+
       - run: npm run build
         env:
           DEMO_EXPORT: "true"
