@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { X, AlertTriangle } from 'lucide-react';
 
 const DEFAULT_PROMPTS = [
   { label: 'Daily Standup', value: 'Summarize my work for a daily standup meeting. Focus on what was completed, what is in progress, and any blockers.' },
@@ -148,7 +149,7 @@ export default function SummaryModal({ isOpen, onClose, defaultDate, isDemo = fa
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-6 py-4 bg-popover sticky top-0 z-10">
           <h2 className="text-lg font-semibold text-popover-foreground">Generate Summary</h2>
-          <button onClick={onClose} aria-label="Close" className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-muted">✕</button>
+          <button onClick={onClose} aria-label="Close" className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-muted"><X className="h-4 w-4" aria-hidden="true" /></button>
         </div>
 
         {/* Body */}
@@ -232,7 +233,7 @@ export default function SummaryModal({ isOpen, onClose, defaultDate, isDemo = fa
 
           {error && (
             <div className="text-sm text-destructive bg-destructive/10 p-4 rounded-xl border border-destructive/20 flex items-center gap-2">
-              <span>⚠️</span> {error}
+              <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" /> {error}
             </div>
           )}
         </div>

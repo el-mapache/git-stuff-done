@@ -37,27 +37,27 @@
 }
 
 :root {
-  /* Light Mode — Playful: violet-tinted surfaces, rich primary, alive palette */
-  --background: oklch(97% 0.016 272);   /* Lavender tint, not plain white */
-  --foreground: oklch(18% 0.02 272);    /* Violet-tinged near-black */
+  /* Light Mode — warm mauve/plum surfaces, deep eggplant primary */
+  --background: oklch(97% 0.012 308);   /* Barely-there warm mauve */
+  --foreground: oklch(17% 0.025 308);   /* Near-black with warm purple undertone */
 
-  --card: oklch(100% 0.003 272);        /* Clean white with barely-there violet */
-  --card-foreground: oklch(18% 0.02 272);
+  --card: oklch(100% 0.003 308);        /* Clean white, barely-there tint */
+  --card-foreground: oklch(17% 0.025 308);
 
-  --popover: oklch(100% 0.003 272);
-  --popover-foreground: oklch(18% 0.02 272);
+  --popover: oklch(100% 0.003 308);
+  --popover-foreground: oklch(17% 0.025 308);
 
-  --primary: oklch(59% 0.23 272);       /* Richer violet — more chroma than before */
-  --primary-foreground: oklch(99% 0.005 272);
+  --primary: oklch(44% 0.26 308);       /* Deep eggplant — rich, not blue */
+  --primary-foreground: oklch(99% 0.003 308);
 
-  --secondary: oklch(94% 0.016 272);    /* Violet-tinted instead of dead zinc */
-  --secondary-foreground: oklch(25% 0.03 272);
+  --secondary: oklch(94% 0.016 308);    /* Soft mauve tint */
+  --secondary-foreground: oklch(25% 0.03 308);
 
-  --muted: oklch(93% 0.014 272);        /* Tinted muted surfaces */
-  --muted-foreground: oklch(50% 0.03 272);
+  --muted: oklch(93% 0.013 308);
+  --muted-foreground: oklch(50% 0.03 308);
 
-  --accent: oklch(90% 0.042 272);       /* More saturated — hover states pop */
-  --accent-foreground: oklch(45% 0.22 272);
+  --accent: oklch(90% 0.038 308);       /* Warm mauve hover — reads as soft plum, not blue */
+  --accent-foreground: oklch(40% 0.24 308);
 
   --destructive: oklch(55% 0.22 25);
   --destructive-foreground: oklch(99% 0.005 25);
@@ -65,9 +65,9 @@
   --warning: oklch(68% 0.16 75);
   --warning-foreground: oklch(20% 0.05 75);
 
-  --border: oklch(87% 0.026 272);       /* Visible violet-tinted border */
-  --input: oklch(87% 0.026 272);
-  --ring: oklch(59% 0.23 272);
+  --border: oklch(87% 0.024 308);       /* Plum-tinted border */
+  --input: oklch(87% 0.024 308);
+  --ring: oklch(44% 0.26 308);
 
   /* Easing tokens */
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
@@ -76,27 +76,27 @@
 }
 
 .dark {
-  /* Dark Mode — Moody: 3-tier surface depth, deep violet-tinted blacks */
-  --background: oklch(13% 0.025 272);   /* Deep violet-tinged near-black */
-  --foreground: oklch(96% 0.008 272);   /* Warm-violet off-white */
+  /* Dark Mode — deep eggplant blacks, 3-tier surface depth */
+  --background: oklch(12% 0.028 312);   /* Almost-black eggplant */
+  --foreground: oklch(96% 0.008 308);   /* Warm off-white */
 
-  --card: oklch(18% 0.032 272);         /* Elevated surface — clearly distinct from bg */
-  --card-foreground: oklch(96% 0.008 272);
+  --card: oklch(17% 0.038 312);         /* Elevated eggplant surface */
+  --card-foreground: oklch(96% 0.008 308);
 
-  --popover: oklch(22% 0.038 272);      /* Highest surface — popovers, modals */
-  --popover-foreground: oklch(96% 0.008 272);
+  --popover: oklch(22% 0.052 312);      /* Highest surface — popovers, modals */
+  --popover-foreground: oklch(96% 0.008 308);
 
-  --primary: oklch(72% 0.19 272);       /* Bright confident violet */
-  --primary-foreground: oklch(14% 0.04 272);
+  --primary: oklch(70% 0.22 305);       /* Vibrant purple-plum */
+  --primary-foreground: oklch(13% 0.04 312);
 
-  --secondary: oklch(23% 0.04 272);
-  --secondary-foreground: oklch(88% 0.012 272);
+  --secondary: oklch(22% 0.042 312);
+  --secondary-foreground: oklch(88% 0.012 308);
 
-  --muted: oklch(23% 0.036 272);
-  --muted-foreground: oklch(63% 0.038 272);
+  --muted: oklch(22% 0.038 312);
+  --muted-foreground: oklch(62% 0.04 308);
 
-  --accent: oklch(29% 0.085 272);       /* Rich violet accent surface */
-  --accent-foreground: oklch(86% 0.075 272);
+  --accent: oklch(26% 0.092 312);       /* Rich eggplant accent surface */
+  --accent-foreground: oklch(85% 0.072 308);
 
   --destructive: oklch(40% 0.15 25);
   --destructive-foreground: oklch(96% 0.01 25);
@@ -104,9 +104,9 @@
   --warning: oklch(40% 0.1 75);
   --warning-foreground: oklch(93% 0.04 75);
 
-  --border: oklch(27% 0.044 272);       /* Clearly visible but not harsh */
-  --input: oklch(27% 0.044 272);
-  --ring: oklch(72% 0.19 272);
+  --border: oklch(25% 0.05 312);        /* Warm eggplant border */
+  --input: oklch(25% 0.05 312);
+  --ring: oklch(70% 0.22 305);
 
   /* Easing tokens */
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
@@ -321,17 +321,17 @@ select:focus-visible {
   animation: panel-in 320ms var(--ease-out-expo) both;
 }
 
-/* Panel card shadow — violet-tinted in light, deep in dark */
+/* Panel card shadow — plum-tinted in light, deep eggplant in dark */
 .panel-shadow {
   box-shadow:
-    0 1px 3px oklch(59% 0.23 272 / 0.07),
-    0 4px 12px oklch(59% 0.23 272 / 0.06);
+    0 1px 3px oklch(44% 0.26 308 / 0.07),
+    0 4px 12px oklch(44% 0.26 308 / 0.06);
 }
 
 .dark .panel-shadow {
   box-shadow:
-    0 2px 8px oklch(10% 0.03 272 / 0.6),
-    0 8px 24px oklch(10% 0.03 272 / 0.5);
+    0 2px 8px oklch(10% 0.03 312 / 0.6),
+    0 8px 24px oklch(10% 0.03 312 / 0.5);
 }
 
 @media (prefers-reduced-motion: reduce) {

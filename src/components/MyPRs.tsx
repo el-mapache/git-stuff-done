@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { GitMerge, CheckCircle } from "lucide-react";
 import { DEMO_PRS } from "@/lib/demo";
 import { useVisibilityPolling } from "@/hooks/useVisibilityPolling";
 
@@ -86,7 +87,10 @@ export default function MyPRs({
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <h2 className="text-sm font-semibold text-primary">🔀 My PRs</h2>
+        <h2 className="text-base font-semibold text-primary flex items-center gap-2">
+          <GitMerge className="h-4 w-4" aria-hidden="true" />
+          My PRs
+        </h2>
         <button
           onClick={refresh}
           className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
@@ -113,8 +117,8 @@ export default function MyPRs({
             Loading…
           </div>
         ) : prs.length === 0 ? (
-          <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
-            No open PRs 🎉
+          <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+            <CheckCircle className="h-4 w-4" aria-hidden="true" /> No open PRs
           </div>
         ) : (
           <ul className="divide-y divide-border">

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Bell, CheckCircle } from 'lucide-react';
 import { DEMO_NOTIFICATIONS } from '@/lib/demo';
 import { useVisibilityPolling } from '@/hooks/useVisibilityPolling';
 
@@ -122,8 +123,9 @@ export default function GitHubNotifications({ isDemo = false, onInsert, refreshT
     <div className="flex h-full flex-col rounded-xl text-foreground">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <h2 className="text-sm font-semibold tracking-wide text-amber-500">
-          🔔 Notifications
+        <h2 className="text-base font-semibold text-amber-500 flex items-center gap-2">
+          <Bell className="h-4 w-4" aria-hidden="true" />
+          Notifications
         </h2>
         <button
           onClick={refresh}
@@ -164,8 +166,8 @@ export default function GitHubNotifications({ isDemo = false, onInsert, refreshT
             Loading…
           </div>
         ) : visibleNotifications.length === 0 ? (
-          <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
-            No notifications 🎉
+          <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+            <CheckCircle className="h-4 w-4" aria-hidden="true" /> No notifications
           </div>
         ) : (
           <ul className="divide-y divide-border">
