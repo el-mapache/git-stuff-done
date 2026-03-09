@@ -71,9 +71,10 @@ function parseFilename(filename: string): string {
     day: "numeric",
     year: "numeric",
   });
+  const UPPERCASE_WORDS = new Set(["ai", "ci", "pr", "api", "ui", "css", "sdk"]);
   const title = slug
     .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .map((w) => UPPERCASE_WORDS.has(w) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
   return `${formattedDate} — ${title}`;
 }
