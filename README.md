@@ -2,7 +2,9 @@
 
 **git-stuff-done** is your personal developer dashboard designed to keep you in the flow. It combines a distraction-free markdown editor for your daily work logs with AI superpowers. Track your work, manage your PRs and GitHub notifications, and generate work summaries all in one place.
 
-<img width="1000" alt="image" src="https://github.com/user-attachments/assets/5034fdc1-c980-4e3a-b351-64b40ca6b567" />
+## 👉 [check out the demo](https://therzka.github.io/git-stuff-done/) 👈
+
+(or see [screenshots](#screenshots) below)
 
 ## Features
 
@@ -12,10 +14,11 @@
 - **✨ AI Assistant** — A unified modal (toolbar ✨ button) with two modes:
   - **📊 Summarize** — Generate AI-powered summaries of your work logs for daily standups or weekly reports. Choose the AI model, pick a date range, and **save summaries** directly to your repo in `summaries/`.
   - **🔍 Search** — Natural language search across your work logs. Ask questions like "What did I work on last week?" or "Find all examples of pairing sessions." The search automatically classifies your query into one of three strategies:
-    - **Exhaustive** — queries like "find all examples of X" search through ALL available logs.
-    - **Date-bounded** — queries with time constraints search only the specified range.
+    - **Exhaustive** — queries like "find all examples of X" or "every time I mentioned Y" search through ALL available logs to find every instance.
+    - **Date-bounded** — queries with time constraints like "last two weeks" or "in February" search only the specified range.
     - **Recent-first** — general queries progressively look back in 7-day increments (up to 365 days), ideal for "when did I last…" style questions with resumable deep lookback.
-  - Follows GitHub links in your logs for additional context and never fabricates answers. Includes a model selector shared across both modes.
+  - The search API streams results via NDJSON, so you see real-time progress in the UI — query classification, log loading, batch progress, and AI call status update live as the search runs. Follows GitHub links in your logs for additional context and never fabricates answers. Includes a model selector shared across both modes.
+- **🤖 Dynamic Model Loading** — Available AI models are loaded from the Copilot SDK at runtime and cached for 24 hours. Falls back to a built-in default list if the SDK is unavailable.
 - **✅ TODO List** — Manual TODOs with inline editing + AI-suggested action items based on your work log.
 - **🔀 My PRs** — Live feed of your open PRs (authored or assigned) in your GitHub org with status badges: **Copilot** (authored by Copilot, you're an assignee), **Draft**, **Queued** / **Merging** (merge queue), **CI Failing** (required checks only), **Needs Review** (awaiting human review), and **unanswered comment count** (excludes bots and resolved threads). Click the insert button on any PR to paste its link at the cursor in your work log.
 - **🐛 My Issues** — Open issues assigned to you across your GitHub org, showing labels (toggleable) and comment counts. Linked PRs appear as chips styled by state (open/draft/merged/closed). Click the insert button to paste a link at the cursor in your work log.
@@ -96,7 +99,7 @@
 ## How It Works
 
 - **Storage:** Daily logs are saved as `logs/YYYY-MM-DD.md`. Summaries are saved in `summaries/YYYY-MM-DD-{type}.md`. TODOs live in `data/todos.json`. Settings in `data/config.json`.
-- **Linkify:** Click **🪄 Linkify** in the log panel. Resolves bare GitHub URLs to titled markdown links (e.g. `[Fix auth bug (#123)](url)`). Saves the result back to the same file.
+- **Linkify:** Click **🪄 Linkify** in the log panel. Strips GitHub URLs to their bare form first (removing sub-paths like `/files`, fragments, and query params), then resolves them to titled markdown links (e.g. `[Fix auth bug (#123)](url)`). Saves the result back to the same file.
 - **Auto-commit:** Every hour while the app is running, changes to `logs/`, `summaries/`, and `data/` are committed and pushed. You can also trigger a manual commit via the 🚀 button.
 - **Timezone:** All dates use America/Los_Angeles (Pacific Time). Edit `getTodayDate()` in `src/lib/files.ts` to change.
 
@@ -105,7 +108,7 @@
 - Next.js 16 (App Router) + TypeScript
 - Tailwind CSS v4
 - Tiptap (ProseMirror) rich text editor
-- `@github/copilot-sdk` for AI summaries
+- `@github/copilot-sdk` for AI summaries and dynamic model discovery
 - Space Grotesk + JetBrains Mono fonts
 - Octokit for GitHub API
 - react-resizable-panels for layout
@@ -128,6 +131,6 @@
 | :------------------------------------------: | :-----------------------------------------------------: |
 | <img src="screenshots/search-demo.png" width="400" /> | <img src="screenshots/column-layout.png" width="400" /> |
 
-|                  Calendar Picker                   |                                                         |
-| :------------------------------------------------: | :-----------------------------------------------------: |
-| <img src="screenshots/calendar.png" width="400" /> |                                                         |
+|                  Calendar Picker                   |     |
+| :------------------------------------------------: | :-: |
+| <img src="screenshots/calendar.png" width="400" /> |     |

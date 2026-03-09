@@ -49,9 +49,10 @@ export async function callCopilot(
  * replacing bare URLs with titled markdown links.
  */
 export async function linkifyWorkLog(rawMarkdown: string): Promise<string> {
-  // Strip trailing slashes from GitHub issue/PR URLs before linkifying
+  // Strip suffixes (sub-paths, fragments, query params) from GitHub issue/PR URLs
+  // e.g. /pull/123/files, /issues/123#issuecomment-456, /pull/123?diff=unified
   const cleaned = rawMarkdown.replace(
-    /(https:\/\/github\.com\/[^/]+\/[^/]+\/(?:issues|pull)\/\d+)\//g,
+    /(https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/(?:issues|pull)\/\d+)[/#?][^\s)\]>]*/g,
     '$1',
   );
   const urls = await extractGitHubUrls(cleaned);
