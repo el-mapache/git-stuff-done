@@ -96,7 +96,7 @@
 ## How It Works
 
 - **Storage:** Daily logs are saved as `logs/YYYY-MM-DD.md`. Summaries are saved in `summaries/YYYY-MM-DD-{type}.md`. TODOs live in `data/todos.json`. Settings in `data/config.json`.
-- **Linkify:** Click **🪄 Linkify** in the log panel. Resolves bare GitHub URLs to titled markdown links (e.g. `[Fix auth bug (#123)](url)`). Saves the result back to the same file.
+- **Linkify:** Click **🪄 Linkify** in the log panel. Strips GitHub URLs to their bare form first (removing sub-paths like `/files`, fragments, and query params), then resolves them to titled markdown links (e.g. `[Fix auth bug (#123)](url)`). Saves the result back to the same file.
 - **Auto-commit:** Every hour while the app is running, changes to `logs/`, `summaries/`, and `data/` are committed and pushed. You can also trigger a manual commit via the 🚀 button.
 - **Timezone:** All dates use America/Los_Angeles (Pacific Time). Edit `getTodayDate()` in `src/lib/files.ts` to change.
 
