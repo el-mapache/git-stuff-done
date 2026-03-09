@@ -18,6 +18,7 @@
     - **Date-bounded** — queries with time constraints like "last two weeks" or "in February" search only the specified range.
     - **Recent-first** — general queries progressively look back in 7-day increments (up to 365 days), ideal for "when did I last…" style questions with resumable deep lookback.
   - The search API streams results via NDJSON, so you see real-time progress in the UI — query classification, log loading, batch progress, and AI call status update live as the search runs. Follows GitHub links in your logs for additional context and never fabricates answers. Includes a model selector shared across both modes.
+  - Results render as **rich text** (headings, bold, links, lists) but copy as **markdown** — select and copy from results or use the Copy button to get clean markdown.
 - **🤖 Dynamic Model Loading** — Available AI models are loaded from the Copilot SDK at runtime and cached for 24 hours. Falls back to a built-in default list if the SDK is unavailable.
 - **✅ TODO List** — Manual TODOs with inline editing + AI-suggested action items based on your work log.
 - **🔀 My PRs** — Live feed of your open PRs (authored or assigned) in your GitHub org with status badges: **Copilot** (authored by Copilot, you're an assignee), **Draft**, **Queued** / **Merging** (merge queue), **CI Failing** (required checks only), **Needs Review** (awaiting human review), and **unanswered comment count** (excludes bots and resolved threads). Click the insert button on any PR to paste its link at the cursor in your work log.

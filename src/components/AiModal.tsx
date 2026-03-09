@@ -2,12 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { X, AlertTriangle, Search } from 'lucide-react';
-
-const MODELS = [
-  { label: 'GPT 5.2', value: 'gpt-5.2' },
-  { label: 'GPT 4.1', value: 'gpt-4.1' },
-  { label: 'Claude 4.6 Sonnet', value: 'claude-sonnet-4.6' },
-];
+import { useModels } from '@/hooks/useModels';
+import MarkdownViewer from '@/components/MarkdownViewer';
 
 const DEFAULT_PROMPTS = [
   { label: 'Daily Standup', value: 'Summarize my work for a daily standup meeting. Focus on what was completed, what is in progress, and any blockers.' },
@@ -27,9 +23,19 @@ interface AiModalProps {
 export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDemo = false }: AiModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // Dynamic model loading
+  const { models, loading: modelsLoading } = useModels(isOpen);
+
   // Shared state
   const [activeTab, setActiveTab] = useState<'search' | 'summarize'>(defaultTab);
-  const [selectedModel, setSelectedModel] = useState(MODELS[0].value);
+  const [selectedModel, setSelectedModel] = useState('');
+
+  // Set default model once models load
+  useEffect(() => {
+    if (models.length > 0 && !selectedModel) {
+      setSelectedModel(models[0].id);
+    }
+  }, [models, selectedModel]);
 
   // Search pane state
   const DEMO_QUERY = 'when did I meet with sarah?';
@@ -43,6 +49,7 @@ export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDe
   const [exhausted, setExhausted] = useState(false);
   const [canContinue, setCanContinue] = useState(false);
   const [searchMode, setSearchMode] = useState<string | null>(null);
+  const [progressMessage, setProgressMessage] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const demoInitRef = useRef(false);
 
@@ -68,6 +75,7 @@ export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDe
     setExhausted(false);
     setCanContinue(false);
     setSearchMode(null);
+    setProgressMessage(null);
     setSearchLoading(false);
     // Reset summarize state
     setStartDate(defaultDate);
@@ -123,6 +131,7 @@ export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDe
     setSearchLoading(true);
     setSearchError(null);
     setCanContinue(false);
+    setProgressMessage(null);
     if (offsetDays === 0) {
       setSearchResult(null);
       setDaysSearched(0);
@@ -157,18 +166,46 @@ export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDe
       });
 
       if (!res.ok) throw new Error('Search failed');
-      const data = await res.json();
 
-      setDaysSearched(data.daysSearched);
-      setExhausted(data.exhausted);
-      setSearchMode(data.searchMode ?? null);
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
 
-      if (data.answer) {
-        setSearchResult(data.answer);
-        setCanContinue(false);
-      } else {
-        setCanContinue(data.searchMode === 'recent_first' && !data.exhausted);
-        setSearchResult(null);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop()!;
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          try {
+            const event = JSON.parse(trimmed);
+            if (event.type === 'progress') {
+              setProgressMessage(event.message);
+              if (event.daysSearched != null) setDaysSearched(event.daysSearched);
+              if (event.searchMode) setSearchMode(event.searchMode);
+            } else if (event.type === 'complete') {
+              setDaysSearched(event.daysSearched);
+              setExhausted(event.exhausted);
+              setSearchMode(event.searchMode ?? null);
+              if (event.answer) {
+                setSearchResult(event.answer);
+                setCanContinue(false);
+              } else {
+                setCanContinue(event.searchMode === 'recent_first' && !event.exhausted);
+                setSearchResult(null);
+              }
+            } else if (event.type === 'error') {
+              setSearchError(event.error);
+            }
+          } catch {
+            // skip malformed lines
+          }
+        }
       }
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
@@ -176,6 +213,7 @@ export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDe
       }
     } finally {
       setSearchLoading(false);
+      setProgressMessage(null);
     }
   };
 
@@ -322,11 +360,11 @@ export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDe
                 <select
                   value={selectedModel}
                   onChange={(e) => setSelectedModel(e.target.value)}
-                  disabled={searchLoading}
+                  disabled={searchLoading || modelsLoading}
                   className="w-full rounded-xl border border-input bg-muted/50 px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/20 transition-all cursor-pointer"
                 >
-                  {MODELS.map((m) => (
-                    <option key={m.value} value={m.value}>{m.label}</option>
+                  {models.map((m) => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
                   ))}
                 </select>
               </div>
@@ -336,11 +374,7 @@ export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDe
                 <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/50 border border-border">
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                   <span className="text-sm text-muted-foreground">
-                    {searchMode === 'exhaustive'
-                      ? 'Searching all logs...'
-                      : searchMode === 'date_bounded'
-                        ? 'Searching specified date range...'
-                        : `Searching${daysSearched > 0 ? ` (looked back ${daysSearched} days so far)` : ''}...`}
+                    {progressMessage ?? 'Starting search...'}
                   </span>
                 </div>
               )}
@@ -376,9 +410,10 @@ export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDe
                       Searched {daysSearched} days
                     </span>
                   </div>
-                  <div className="rounded-xl border border-input bg-muted px-4 py-3 text-sm text-foreground whitespace-pre-wrap font-mono">
-                    {searchResult}
-                  </div>
+                  <MarkdownViewer
+                    content={searchResult}
+                    className="rounded-xl border border-input bg-muted px-4 py-3 text-sm text-foreground"
+                  />
                 </div>
               )}
 
@@ -442,10 +477,11 @@ export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDe
                     id="ai-summary-model"
                     value={selectedModel}
                     onChange={(e) => setSelectedModel(e.target.value)}
+                    disabled={modelsLoading}
                     className="w-full rounded-xl border border-input bg-muted/50 px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/20 transition-all cursor-pointer"
                   >
-                    {MODELS.map((m) => (
-                      <option key={m.value} value={m.value}>{m.label}</option>
+                    {models.map((m) => (
+                      <option key={m.id} value={m.id}>{m.name}</option>
                     ))}
                   </select>
                 </div>
@@ -474,12 +510,10 @@ export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDe
               {/* Result Area */}
               {summaryResult && (
                 <div className="mt-6 pt-6 border-t border-border">
-                  <label htmlFor="ai-summary-result" className="block text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">Generated Summary</label>
-                  <textarea
-                    id="ai-summary-result"
-                    readOnly
-                    value={summaryResult}
-                    className="w-full h-64 rounded-xl border border-input bg-muted px-4 py-3 text-sm text-foreground font-mono outline-none resize-none"
+                  <label className="block text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">Generated Summary</label>
+                  <MarkdownViewer
+                    content={summaryResult}
+                    className="max-h-64 overflow-y-auto rounded-xl border border-input bg-muted px-4 py-3 text-sm text-foreground"
                   />
                 </div>
               )}
