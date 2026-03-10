@@ -412,6 +412,7 @@ export type MyIssue = {
   labels: string[];
   commentCount: number;
   author: string;
+  assignees: string[];
   linkedPRs: {
     number: number;
     title: string;
@@ -457,6 +458,7 @@ export async function fetchMyIssues(): Promise<MyIssue[]> {
           .filter(Boolean),
         commentCount: item.comments,
         author: item.user?.login ?? "",
+        assignees: (item.assignees ?? []).map((a) => a.login),
         linkedPRs: [],
       };
     });
@@ -610,4 +612,124 @@ export async function fetchNotifications(options?: {
   );
 
   return withState.filter((n): n is GitHubNotification => n !== null);
+}
+
+// --- Org Repos ---
+
+export type OrgRepo = {
+  name: string;
+  fullName: string;
+};
+
+export type OrgReposPage = {
+  repos: OrgRepo[];
+  hasMore: boolean;
+};
+
+export async function fetchOrgRepos(opts?: {
+  page?: number;
+  perPage?: number;
+  query?: string;
+}): Promise<OrgReposPage> {
+  const octokit = await getOctokit();
+  const config = await readConfig();
+  const page = opts?.page ?? 1;
+  const perPage = opts?.perPage ?? 30;
+  const query = opts?.query?.trim();
+
+  if (query) {
+    // Use search API for type-ahead
+    const { data } = await octokit.search.repos({
+      q: `${query} in:name org:${GITHUB_ORG}`,
+      sort: "updated",
+      order: "desc",
+      per_page: perPage,
+      page,
+    });
+    const repos = data.items
+      .filter((r) => !config.ignoredRepos.includes(r.name))
+      .map((r) => ({ name: r.name, fullName: r.full_name }));
+    return { repos, hasMore: data.total_count > page * perPage };
+  }
+
+  const { data } = await octokit.repos.listForOrg({
+    org: GITHUB_ORG,
+    sort: "pushed",
+    direction: "desc",
+    per_page: perPage,
+    page,
+  });
+  const repos = data
+    .filter((r) => !config.ignoredRepos.includes(r.name))
+    .map((r) => ({ name: r.name, fullName: r.full_name }));
+  return { repos, hasMore: data.length === perPage };
+}
+
+// --- Copilot Agent Assignment ---
+
+export type CopilotAssignResult = {
+  success: boolean;
+  error?: string;
+};
+
+export async function assignCopilotToIssue(opts: {
+  owner: string;
+  repo: string;
+  issueNumber: number;
+  targetRepo: string;
+  model: string;
+  instructions: string;
+}): Promise<CopilotAssignResult> {
+  const octokit = await getOctokit();
+  const { data: userData } = await octokit.users.getAuthenticated();
+  const user = userData.login;
+
+  // Build custom_instructions with system-level directives prepended
+  const issueRef = `${opts.owner}/${opts.repo}#${opts.issueNumber}`;
+  const systemDirectives = [
+    `After completing your work, comment on the original issue (${issueRef}) with a summary of the root cause and the fix you applied.`,
+    `Assign the pull request you create to both yourself and @${user}.`,
+  ];
+  const fullInstructions = opts.instructions
+    ? [...systemDirectives, "", opts.instructions].join("\n")
+    : systemDirectives.join("\n");
+
+  // Assign copilot-swe-agent[bot] with agent_assignment params
+  try {
+    await octokit.request(
+      "POST /repos/{owner}/{repo}/issues/{issue_number}/assignees",
+      {
+        owner: opts.owner,
+        repo: opts.repo,
+        issue_number: opts.issueNumber,
+        assignees: ["copilot-swe-agent[bot]"],
+        agent_assignment: {
+          target_repo: opts.targetRepo,
+          model: opts.model || "",
+          custom_instructions: fullInstructions,
+        },
+        headers: {
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+      },
+    );
+  } catch (err) {
+    const msg = (err as Error).message || "Unknown error";
+    console.error(`[copilot-assign] GitHub API error: ${msg}`);
+    return { success: false, error: msg };
+  }
+
+  // Assign the current user to the issue separately
+  try {
+    await octokit.issues.addAssignees({
+      owner: opts.owner,
+      repo: opts.repo,
+      issue_number: opts.issueNumber,
+      assignees: [user],
+    });
+  } catch {
+    // best-effort — user may already be assigned
+  }
+
+  return { success: true };
 }
