@@ -419,7 +419,7 @@ export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDe
                   </div>
                   <MarkdownViewer
                     content={searchResult}
-                    className="rounded-xl border border-input bg-muted px-4 py-3 text-sm text-foreground"
+                    className="rounded-xl border border-input bg-muted px-4 py-3 text-foreground"
                   />
                 </div>
               )}
@@ -529,7 +529,7 @@ export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDe
                   <label className="block text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">Generated Summary</label>
                   <MarkdownViewer
                     content={summaryResult}
-                    className="max-h-64 overflow-y-auto rounded-xl border border-input bg-muted px-4 py-3 text-sm text-foreground"
+                    className="max-h-64 overflow-y-auto rounded-xl border border-input bg-muted px-4 py-3 text-foreground"
                   />
                 </div>
               )}
