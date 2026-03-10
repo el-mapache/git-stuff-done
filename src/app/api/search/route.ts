@@ -321,7 +321,7 @@ async function searchDateBounded(
 
 /**
  * Recent-first search: iterative windowed approach, stops on first answer.
- * Each iteration only sends the NEW window's logs to the AI (not all accumulated).
+ * Accumulates logs across iterations so the AI gets progressively more context.
  * GitHub context is cached across iterations to avoid redundant API calls.
  */
 async function searchRecentFirst(
@@ -334,6 +334,7 @@ async function searchRecentFirst(
 ) {
   emit({ type: 'progress', message: 'Searching recent logs...', daysSearched: offsetDays, searchMode: 'recent_first' });
   console.log(`[search] recent_first: starting from offset ${offsetDays} days`);
+  const allLogs: string[] = [];
   let daysSearched = offsetDays;
   let answer: string | null = null;
 
@@ -349,16 +350,17 @@ async function searchRecentFirst(
     const startStr = formatDate(windowStart);
     const endStr = formatDate(windowEnd);
 
-    const windowLogs = await loadLogsForRange(startStr, endStr);
+    const newLogs = await loadLogsForRange(startStr, endStr);
+    allLogs.push(...newLogs);
     daysSearched += WINDOW_SIZE;
-    console.log(`[search] recent_first: iter ${iter + 1}/${MAX_ITERATIONS_PER_REQUEST}, window ${startStr}..${endStr}, ${windowLogs.length} logs`);
-    emit({ type: 'progress', message: `Looked back ${daysSearched} days...`, daysSearched, searchMode: 'recent_first' });
+    console.log(`[search] recent_first: iter ${iter + 1}/${MAX_ITERATIONS_PER_REQUEST}, window ${startStr}..${endStr}, +${newLogs.length} logs (total ${allLogs.length})`);
+    emit({ type: 'progress', message: `Looked back ${daysSearched} days (${allLogs.length} log entries)...`, daysSearched, searchMode: 'recent_first' });
 
-    if (windowLogs.length === 0 && daysSearched < MAX_LOOKBACK_DAYS) {
+    if (allLogs.length === 0 && daysSearched < MAX_LOOKBACK_DAYS) {
       continue;
     }
 
-    if (windowLogs.length === 0) {
+    if (allLogs.length === 0) {
       console.log(`[search] recent_first: no logs found after ${daysSearched} days`);
       emit({
         type: 'complete',
@@ -372,7 +374,7 @@ async function searchRecentFirst(
 
     // Only fetch GitHub context for new URLs not already cached
     const newUrls: string[] = [];
-    for (const log of windowLogs) {
+    for (const log of newLogs) {
       const urls = await extractGitHubUrls(log);
       for (const u of urls) {
         if (!githubContextCache.has(u)) {
@@ -390,15 +392,16 @@ async function searchRecentFirst(
 
     emit({ type: 'progress', message: `Searching with AI (${daysSearched} days so far)...`, daysSearched, searchMode: 'recent_first' });
 
-    // Only send this window's logs, but include all cached GitHub context
     const allGithubContext = Array.from(githubContextCache.values());
-    const totalChars = windowLogs.reduce((sum, l) => sum + l.length, 0);
-    const searchWindow = `Searching from ${startStr} to ${endStr} (${WINDOW_SIZE}-day window, ${daysSearched} total days searched)`;
+    const totalChars = allLogs.reduce((sum, l) => sum + l.length, 0);
+    const searchWindow = `Searching from ${formatDate(
+      new Date(today.getTime() - daysSearched * 86400000),
+    )} to ${todayDate} (${daysSearched} days)`;
 
     const systemPrompt = buildSystemPrompt(todayDate, 'recent_first');
     const userPrompt = buildUserPrompt(
       query,
-      windowLogs,
+      allLogs,
       allGithubContext,
       searchWindow,
     );
