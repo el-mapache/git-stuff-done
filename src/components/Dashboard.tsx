@@ -241,17 +241,17 @@ export default function Dashboard() {
             onClick={handleCommit}
             disabled={commitState !== 'idle' || isDemo}
             title={isDemo ? 'Disabled in demo mode' : 'Push to GitHub'}
-            className={`rounded-xl px-2.5 py-1.5 text-xs font-semibold shadow-sm transition-colors duration-300 sm:px-4 sm:text-sm ${
+            className={`inline-flex items-center justify-center rounded-xl min-w-[2.75rem] sm:min-w-[8.5rem] px-2.5 py-1.5 text-xs font-semibold shadow-sm transition-colors duration-300 sm:px-4 sm:text-sm ${
               commitState === 'success'
                 ? 'bg-success text-success-foreground disabled:opacity-100'
                 : commitState === 'error'
                   ? 'bg-destructive text-destructive-foreground disabled:opacity-100'
-                  : commitState === 'no-changes'
-                    ? 'bg-muted text-muted-foreground disabled:opacity-100'
-                    : 'bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50'
+                  : 'bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50'
             }`}
           >
-            {commitState === 'committing' && '…'}
+            {commitState === 'committing' && (
+              <><Upload className="h-3.5 w-3.5 animate-pulse sm:hidden" aria-hidden="true" /><span className="hidden sm:inline">Committing…</span></>
+            )}
             {commitState === 'idle' && (
               <><Upload className="h-3.5 w-3.5 sm:hidden" aria-hidden="true" /><span className="hidden sm:inline">Commit &amp; Push</span></>
             )}
