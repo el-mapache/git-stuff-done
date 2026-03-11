@@ -26,8 +26,8 @@
 - **🐛 My Issues** — Open issues assigned to you across your GitHub org, showing labels (toggleable) and comment counts. Linked PRs appear as chips styled by state (open/draft/merged/closed). Click the insert button to paste a link at the cursor in your work log.
 - **🤖 Assign to Copilot** — From the My Issues panel, hover over any issue without a linked PR and click the Copilot icon to assign it to the GitHub Copilot coding agent. A modal lets you select the **target repository** (where the PR will be created — useful when issues live in a tracker repo but code lives elsewhere), the **AI model** for Copilot to use, and provide **additional instructions**. Issues already assigned to Copilot show a "Copilot" badge. Uses the GitHub REST API with the `agent_assignment` parameter for cross-repo PR creation.
 - **🔔 Notifications** — Filtered GitHub notifications: reviews requested, mentions, assignments, and activity on your issues/PRs. Click the insert button to paste a link at the cursor. Dismiss individual notifications with the X button (reappear on reload).
-- **🚀 Auto-commit & Push** — Hourly auto-commit of your logs and TODOs to a git repo, with push to remote.
-- **⚙️ Settings** — Ignore noisy repos in notifications.
+- **🚀 Auto-commit & Push** — Hourly auto-commit of your logs and TODOs to a git repo, with push to remote. The commit button provides inline visual feedback — it changes color and text to show success, "no changes", or error states for 3 seconds, then reverts. No layout shift.
+- **⚙️ Settings** — Ignore noisy repos in notifications. Adjust **font size** across the dashboard (Compact / Default / Comfortable / Large) — only text scales, layout stays stable. Preferences are saved in localStorage.
 - **▤ Layout modes** — Toggle between grid (2-column) and column (single-column) layouts. Hide individual panels and restore them from the ☰ menu. Preferences are saved in localStorage.
 - **🌗 Dark Mode** — First-class support for both light and dark themes.
 
