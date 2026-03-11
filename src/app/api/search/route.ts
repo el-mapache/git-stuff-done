@@ -47,17 +47,30 @@ function createSearchStream(
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
+      let closed = false;
       const emit: Emit = (event) => {
-        controller.enqueue(encoder.encode(JSON.stringify(event) + '\n'));
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(JSON.stringify(event) + '\n'));
+        } catch {
+          closed = true;
+        }
       };
       try {
         await searchFn(emit);
       } catch (err) {
-        console.error('[search] stream error:', err);
-        emit({ type: 'error', error: 'Failed to perform search' });
+        if (!closed) {
+          console.error('[search] stream error:', err);
+          emit({ type: 'error', error: 'Failed to perform search' });
+        }
       } finally {
-        controller.close();
+        if (!closed) {
+          try { controller.close(); } catch { /* already closed */ }
+        }
       }
+    },
+    cancel() {
+      // Client disconnected — nothing to clean up
     },
   });
 
