@@ -154,6 +154,10 @@ export default function Dashboard() {
       const res = await fetch('/api/config');
       const data = await res.json();
       setIgnoredRepos(data.ignoredRepos ?? []);
+      const serverScale = data.fontSize ?? '1';
+      setFontScale(serverScale);
+      document.documentElement.style.setProperty('--text-scale', serverScale);
+      localStorage.setItem('gsd-font-size', serverScale);
     } catch { /* ignore */ }
   }, []);
 
@@ -409,6 +413,11 @@ export default function Dashboard() {
                     setFontScale(scale);
                     document.documentElement.style.setProperty('--text-scale', scale);
                     localStorage.setItem('gsd-font-size', scale);
+                    fetch('/api/config', {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ fontSize: scale }),
+                    });
                   }}
                   className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
                     fontScale === scale
