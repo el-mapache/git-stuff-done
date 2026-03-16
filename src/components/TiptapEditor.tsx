@@ -7,11 +7,52 @@ import Placeholder from '@tiptap/extension-placeholder';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import { Markdown } from 'tiptap-markdown';
-import { useEffect, useImperativeHandle, forwardRef, useRef } from 'react';
+import { Extension } from '@tiptap/core';
+import { Plugin } from '@tiptap/pm/state';
+import { useEffect, useImperativeHandle, forwardRef, useRef, type MutableRefObject } from 'react';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getMarkdown(editor: { storage: any }): string {
   return editor.storage.markdown.getMarkdown();
+}
+
+/** ProseMirror plugin that intercepts image drops/pastes, uploads them, and prevents default handling. */
+function createImageUploadPlugin(
+  uploadRef: MutableRefObject<((file: File) => Promise<string>) | undefined>,
+) {
+  return new Plugin({
+    props: {
+      handleDrop(_view, event, _slice, moved) {
+        if (moved || !event.dataTransfer?.files.length) return false;
+        const upload = uploadRef.current;
+        if (!upload) return false;
+        const images = Array.from(event.dataTransfer.files).filter(f =>
+          f.type.startsWith('image/'),
+        );
+        if (!images.length) return false;
+        event.preventDefault();
+        for (const file of images) {
+          upload(file).catch(err => console.error('Image upload failed:', err));
+        }
+        return true;
+      },
+      handlePaste(_view, event) {
+        const upload = uploadRef.current;
+        if (!upload) return false;
+        const items = Array.from(event.clipboardData?.items ?? []);
+        const imageFiles = items
+          .filter(i => i.type.startsWith('image/'))
+          .map(i => i.getAsFile())
+          .filter((f): f is File => f !== null);
+        if (!imageFiles.length) return false;
+        event.preventDefault();
+        for (const file of imageFiles) {
+          upload(file).catch(err => console.error('Image upload failed:', err));
+        }
+        return true;
+      },
+    },
+  });
 }
 
 export interface TiptapEditorHandle {
@@ -22,12 +63,17 @@ interface TiptapEditorProps {
   content: string;
   onUpdate: (markdown: string) => void;
   placeholder?: string;
+  onImageUpload?: (file: File) => Promise<string>;
 }
 
 const TiptapEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(
-  ({ content, onUpdate, placeholder }, ref) => {
+  ({ content, onUpdate, placeholder, onImageUpload }, ref) => {
     const onUpdateRef = useRef(onUpdate);
     useEffect(() => { onUpdateRef.current = onUpdate; }, [onUpdate]);
+
+    const uploadRef = useRef(onImageUpload);
+    useEffect(() => { uploadRef.current = onImageUpload; }, [onImageUpload]);
+
     // Track whether we're doing an external content reset to avoid echoing it back
     const externalUpdateRef = useRef(false);
 
@@ -48,6 +94,13 @@ const TiptapEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(
         }),
         TaskList,
         TaskItem.configure({ nested: true }),
+        // eslint-disable-next-line react-hooks/refs -- refs are read at event time, not during render
+        Extension.create({
+          name: 'imageUpload',
+          addProseMirrorPlugins() {
+            return [createImageUploadPlugin(uploadRef)];
+          },
+        }),
         Markdown.configure({
           tightLists: true,
           linkify: true,

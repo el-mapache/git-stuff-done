@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FileText, Link2 } from 'lucide-react';
 import TiptapEditor, { type TiptapEditorHandle } from './TiptapEditor';
+import ImageLightbox from './ImageLightbox';
 import { DEMO_LOG_CONTENT, DEMO_RICH_LOG_CONTENT } from '@/lib/demo';
 
 type SaveStatus = 'idle' | 'unsaved' | 'saving' | 'saved';
@@ -29,6 +30,8 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
   const [content, setContent] = useState('');
   const [status, setStatus] = useState<SaveStatus>('idle');
   const [linkifying, setLinkifying] = useState(false);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<string[]>([]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestContentRef = useRef(content);
   const editorRef = useRef<TiptapEditorHandle>(null);
@@ -54,6 +57,17 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
     return () => { cancelled = true; };
   }, [currentDate, isDemo]);
 
+  // Fetch existing attachments for the current date
+  useEffect(() => {
+    if (isDemo) { setAttachments([]); return; }
+    let cancelled = false;
+    fetch(`/api/attachments?date=${currentDate}`)
+      .then(r => r.json())
+      .then(d => { if (!cancelled) setAttachments(d.files || []); })
+      .catch(() => { if (!cancelled) setAttachments([]); });
+    return () => { cancelled = true; };
+  }, [currentDate, isDemo]);
+
   const save = useCallback(async (text: string) => {
     if (isDemo) return;
     setStatus('saving');
@@ -67,7 +81,7 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
     } catch {
       setStatus('unsaved');
     }
-  }, [currentDate]);
+  }, [currentDate, isDemo]);
 
   const handleLinkify = async () => {
     setLinkifying(true);
@@ -111,6 +125,18 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
     scheduleAutosave(markdown);
   }, [scheduleAutosave]);
 
+  const handleImageUpload = useCallback(async (file: File): Promise<string> => {
+    if (isDemo) throw new Error('Upload disabled in demo mode');
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('date', currentDate);
+    const res = await fetch('/api/attachments', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Upload failed');
+    setAttachments(prev => [...prev, data.url]);
+    return data.url;
+  }, [currentDate, isDemo]);
+
   const insertAtCursor = useCallback((text: string) => {
     editorRef.current?.insertAtCursor(text);
   }, []);
@@ -151,8 +177,26 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
         ref={editorRef}
         content={content}
         onUpdate={handleEditorUpdate}
-        placeholder={"Start typing your work log..."}
+        placeholder="Start typing your work log..."
+        onImageUpload={handleImageUpload}
       />
+      {attachments.length > 0 && (
+        <div className="shrink-0 border-t border-border px-3 py-2 flex items-center gap-2 flex-wrap">
+          {attachments.map(url => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={url}
+              src={url}
+              alt=""
+              className="h-20 w-auto rounded-md border border-border cursor-pointer object-contain transition-opacity hover:opacity-75"
+              onClick={() => setLightboxSrc(url)}
+            />
+          ))}
+        </div>
+      )}
+      {lightboxSrc && (
+        <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+      )}
     </div>
   );
 }
