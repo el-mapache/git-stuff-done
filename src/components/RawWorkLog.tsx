@@ -125,6 +125,16 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
     scheduleAutosave(markdown);
   }, [scheduleAutosave]);
 
+  // Refetch the canonical attachment list from the server
+  const refreshAttachments = useCallback(async () => {
+    if (isDemo) return;
+    try {
+      const res = await fetch(`/api/attachments?date=${currentDate}`);
+      const data = await res.json();
+      setAttachments(data.files || []);
+    } catch { /* ignore */ }
+  }, [currentDate, isDemo]);
+
   const handleImageUpload = useCallback(async (file: File): Promise<string> => {
     if (isDemo) throw new Error('Upload disabled in demo mode');
     const formData = new FormData();
@@ -133,17 +143,17 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
     const res = await fetch('/api/attachments', { method: 'POST', body: formData });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Upload failed');
-    setAttachments(prev => [...prev, data.url]);
+    await refreshAttachments();
     return data.url;
-  }, [currentDate, isDemo]);
+  }, [currentDate, isDemo, refreshAttachments]);
 
   const handleDeleteAttachment = useCallback(async (url: string) => {
     if (isDemo) return;
     try {
       const res = await fetch(url, { method: 'DELETE' });
-      if (res.ok) setAttachments(prev => prev.filter(u => u !== url));
+      if (res.ok) await refreshAttachments();
     } catch { /* ignore */ }
-  }, [isDemo]);
+  }, [isDemo, refreshAttachments]);
 
   const insertAtCursor = useCallback((text: string) => {
     editorRef.current?.insertAtCursor(text);
@@ -158,7 +168,18 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
   }, []);
 
   return (
-    <div className="flex h-full flex-col">
+    <div
+      className="flex h-full flex-col"
+      onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault(); }}
+      onDrop={async (e) => {
+        const images = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+        if (!images.length) return;
+        e.preventDefault();
+        for (const file of images) {
+          try { await handleImageUpload(file); } catch { /* ignore */ }
+        }
+      }}
+    >
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <span className="text-base font-semibold text-primary flex items-center gap-2">
           <FileText className="h-4 w-4" aria-hidden="true" />
@@ -196,7 +217,7 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
               <img
                 src={url}
                 alt=""
-                className="h-20 w-auto rounded-md border border-border cursor-pointer object-contain transition-opacity hover:opacity-75"
+                className="max-h-[80px] max-w-[160px] w-auto h-auto rounded-md border border-border cursor-pointer object-contain transition-opacity hover:opacity-75"
                 onClick={() => setLightboxSrc(url)}
               />
               <button

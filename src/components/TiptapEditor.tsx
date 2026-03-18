@@ -22,18 +22,14 @@ function createImageUploadPlugin(
 ) {
   return new Plugin({
     props: {
+      // Drops are handled by the container onDrop — this just prevents ProseMirror from misinterpreting image files
       handleDrop(_view, event, _slice, moved) {
         if (moved || !event.dataTransfer?.files.length) return false;
-        const upload = uploadRef.current;
-        if (!upload) return false;
-        const images = Array.from(event.dataTransfer.files).filter(f =>
+        const hasImages = Array.from(event.dataTransfer.files).some(f =>
           f.type.startsWith('image/'),
         );
-        if (!images.length) return false;
-        event.preventDefault();
-        for (const file of images) {
-          upload(file).catch(err => console.error('Image upload failed:', err));
-        }
+        if (!hasImages) return false;
+        // Don't preventDefault here — let it bubble to the container onDrop handler
         return true;
       },
       handlePaste(_view, event) {
