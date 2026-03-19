@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { X, AlertTriangle, Search, Square } from 'lucide-react';
+import { X, AlertTriangle, Search, Square, CheckCircle2 } from 'lucide-react';
 import { useModels } from '@/hooks/useModels';
 import MarkdownViewer from '@/components/MarkdownViewer';
 
@@ -61,6 +61,7 @@ export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDe
   const [customPrompt, setCustomPrompt] = useState(DEFAULT_PROMPTS[0].value);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [summaryResult, setSummaryResult] = useState<string | null>(null);
   const [summaryError, setSummaryError] = useState<string | null>(null);
 
@@ -87,6 +88,7 @@ export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDe
     setSummaryError(null);
     setSummaryLoading(false);
     setSaving(false);
+    setSaveMessage(null);
     onClose();
   }, [defaultDate, onClose]);
 
@@ -242,6 +244,7 @@ export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDe
     setSummaryLoading(true);
     setSummaryError(null);
     setSummaryResult(null);
+    setSaveMessage(null);
 
     if (isDemo) {
       setTimeout(() => {
@@ -276,7 +279,8 @@ export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDe
   const saveToRepo = async () => {
     if (!summaryResult) return;
     if (isDemo) {
-      alert("In demo mode, this would save to: summaries/" + endDate + "-summary.md");
+      const slug = DEFAULT_PROMPTS.find(p => p.value === customPrompt)?.label.toLowerCase().replace(/\s+/g, '-') ?? 'custom-summary';
+      setSaveMessage(`summaries/${endDate}-${slug}.md`);
       return;
     }
     setSaving(true);
@@ -299,10 +303,9 @@ export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDe
       if (!res.ok) throw new Error('Failed to save summary');
 
       const data = await res.json();
-      const msg = data.committed ? 'Saved and pushed to repo!' : 'Saved to disk (commit skipped/failed).';
-      alert(`${msg}\nFile: summaries/${filename}`);
-    } catch (err) {
-      console.error(err);
+      const msg = data.committed ? 'Saved and committed!' : 'Saved to disk.';
+      setSaveMessage(`${msg} summaries/${filename}`);
+    } catch {
       setSummaryError('Failed to save summary to repository.');
     } finally {
       setSaving(false);
@@ -400,7 +403,7 @@ export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDe
 
               {/* Long search warning */}
               {showLongSearchWarning && !exhausted && (
-                <div className="text-sm text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 p-3 rounded-xl border border-amber-100 dark:border-amber-900/50 flex items-center gap-2">
+                <div className="text-sm text-warning-foreground bg-warning/10 p-3 rounded-xl border border-warning/20 flex items-center gap-2">
                   <span>⏳</span> Searching far back in history — this may take a while.
                 </div>
               )}
@@ -550,6 +553,13 @@ export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDe
               {summaryError && (
                 <div className="text-sm text-destructive bg-destructive/10 p-4 rounded-xl border border-destructive/20 flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" /> {summaryError}
+                </div>
+              )}
+
+              {/* Save success */}
+              {saveMessage && (
+                <div className="text-sm text-success bg-success/10 p-4 rounded-xl border border-success/20 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" /> {saveMessage}
                 </div>
               )}
             </div>
