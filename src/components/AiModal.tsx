@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { X, AlertTriangle, Search } from 'lucide-react';
+import { X, AlertTriangle, Search, Square } from 'lucide-react';
 import { useModels } from '@/hooks/useModels';
 import MarkdownViewer from '@/components/MarkdownViewer';
 
@@ -222,6 +222,18 @@ export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDe
       setSearchLoading(false);
       setProgressMessage(null);
     }
+  };
+
+  const handleStop = () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setSearchLoading(false);
+    setProgressMessage(null);
+    setSearchResult(null);
+    setSearchError(null);
+    setDaysSearched(0);
+    setCanContinue(false);
+    setSearchMode(null);
   };
 
   // --- Summarize logic ---
@@ -558,13 +570,23 @@ export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDe
                   </button>
                 )}
               </div>
-              <button
-                onClick={() => handleSearch(0)}
-                disabled={searchLoading || !query.trim()}
-                className="rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {searchLoading ? 'Searching…' : <><Search className="h-3.5 w-3.5 inline-block mr-1.5" aria-hidden="true" />Search</>}
-              </button>
+              {searchLoading ? (
+                <button
+                  onClick={handleStop}
+                  className="rounded-xl bg-destructive px-6 py-2.5 text-sm font-semibold text-destructive-foreground shadow-sm transition-all hover:opacity-90"
+                >
+                  <Square className="h-3.5 w-3.5 inline-block mr-1.5 fill-current" aria-hidden="true" />
+                  Stop
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleSearch(0)}
+                  disabled={!query.trim()}
+                  className="rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Search className="h-3.5 w-3.5 inline-block mr-1.5" aria-hidden="true" />Search
+                </button>
+              )}
             </>
           ) : (
             <>
