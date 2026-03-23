@@ -25,14 +25,31 @@ const GH_FIELDS = [
   'updatedAt',
 ].join(',');
 
-export async function GET() {
+type RawTask = Omit<AgentSession, 'pullRequestUrl'>;
+
+async function fetchTasks(limit: number): Promise<RawTask[]> {
+  if (limit < 5) throw new Error('Minimum limit reached with no successful response');
   try {
     const { stdout } = await execAsync(
-      `gh agent-task list --json ${GH_FIELDS} --limit 100`,
+      `gh agent-task list --json ${GH_FIELDS} --limit ${limit}`,
       { env: { ...process.env, NO_COLOR: '1' } }
     );
+    return JSON.parse(stdout) as RawTask[];
+  } catch (err) {
+    // A corrupted/inaccessible task in the result set causes gh to fail entirely.
+    // Retry with a smaller window to skip past the bad record.
+    const isGhError = err instanceof Error && err.message.includes('Could not resolve');
+    if (isGhError) {
+      console.warn(`[sessions] gh failed at limit=${limit}, retrying with limit=${Math.floor(limit / 2)}`);
+      return fetchTasks(Math.floor(limit / 2));
+    }
+    throw err;
+  }
+}
 
-    const raw: Array<Omit<AgentSession, 'pullRequestUrl'>> = JSON.parse(stdout);
+export async function GET() {
+  try {
+    const raw = await fetchTasks(100);
     const sessions: AgentSession[] = raw.map((s) => ({
       ...s,
       pullRequestUrl:
