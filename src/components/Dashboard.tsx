@@ -30,6 +30,7 @@ const PANEL_LABELS: Record<PanelId, string> = {
   sessions: 'Agent Sessions',
 };
 const ALL_PANELS: PanelId[] = ['log', 'todos', 'prs', 'issues', 'notifs', 'sessions'];
+const DEFAULT_PANELS: PanelId[] = ['log', 'todos', 'prs', 'issues', 'notifs'];
 
 type CommitState = 'idle' | 'committing' | 'success' | 'no-changes' | 'error';
 
@@ -55,7 +56,7 @@ function loadVisiblePanels(): Set<PanelId> {
     const stored = localStorage.getItem('gsd-visible-panels');
     if (stored) return new Set(JSON.parse(stored) as PanelId[]);
   } catch { /* ignore */ }
-  return new Set(ALL_PANELS);
+  return new Set(DEFAULT_PANELS);
 }
 
 function todayISO() {
@@ -549,7 +550,7 @@ export default function Dashboard() {
 
     // Grid layout: left column (log, todos), right column (prs, notifs)
     const leftPanels = (['log', 'todos'] as PanelId[]).filter((id) => visiblePanels.has(id));
-    const rightPanels = (['prs', 'issues', 'notifs'] as PanelId[]).filter((id) => visiblePanels.has(id));
+    const rightPanels = (['prs', 'issues', 'notifs', 'sessions'] as PanelId[]).filter((id) => visiblePanels.has(id));
 
     // If one side is empty, show only the other
     if (leftPanels.length === 0 && rightPanels.length > 0) {
