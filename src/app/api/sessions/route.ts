@@ -11,7 +11,6 @@ export type AgentSession = {
   createdAt: string;
   updatedAt: string;
   turnCount: number;
-  fileCount: number;
   refs: { type: string; value: string }[];
 };
 
@@ -30,12 +29,10 @@ export async function GET() {
           s.created_at   AS createdAt,
           s.updated_at   AS updatedAt,
           COUNT(DISTINCT t.turn_index) AS turnCount,
-          COUNT(DISTINCT sf.file_path) AS fileCount,
           -- Note: cwd is intentionally excluded — sessions are shown cross-repo
           GROUP_CONCAT(DISTINCT sr.ref_type || ':' || sr.ref_value) AS refsRaw
         FROM sessions s
         LEFT JOIN turns t  ON t.session_id  = s.id
-        LEFT JOIN session_files sf ON sf.session_id = s.id
         LEFT JOIN session_refs sr  ON sr.session_id  = s.id
         WHERE s.summary IS NOT NULL
           AND s.summary NOT LIKE 'You are a helpful assistant%'
@@ -51,7 +48,6 @@ export async function GET() {
         createdAt: string;
         updatedAt: string;
         turnCount: number;
-        fileCount: number;
         refsRaw: string | null;
       }>;
 
@@ -63,7 +59,6 @@ export async function GET() {
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
         turnCount: row.turnCount ?? 0,
-        fileCount: row.fileCount ?? 0,
         refs: row.refsRaw
           ? row.refsRaw.split(',').map((r) => {
               const [type, ...rest] = r.split(':');

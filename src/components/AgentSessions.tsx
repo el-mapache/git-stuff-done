@@ -72,7 +72,7 @@ export default function AgentSessions({
       const controller = new AbortController();
       abortRef.current = controller;
       const res = await fetch('/api/sessions', { signal: controller.signal });
-      const data: AgentSession[] = await res.json();
+      const data: AgentSession[] = res.ok ? await res.json() : [];
       setSessions(data);
       _sessionCache = data;
     } catch (err) {
