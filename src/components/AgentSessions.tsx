@@ -41,11 +41,8 @@ function groupByDate(sessions: AgentSession[]): [string, AgentSession[]][] {
 }
 
 function insertText(session: AgentSession): string {
-  if (session.pullRequestUrl) {
-    return `[${session.name}](${session.pullRequestUrl})`;
-  }
-  const repoUrl = session.repository ? `https://github.com/${session.repository}` : '';
-  return repoUrl ? `[${session.name}](${repoUrl})` : session.name;
+  const url = session.pullRequestUrl ?? session.taskUrl;
+  return `[${session.name}](${url})`;
 }
 
 export default function AgentSessions({
@@ -133,7 +130,6 @@ export default function AgentSessions({
             <ul className="divide-y divide-border">
               {items.map((session) => {
                 const repoShort = session.repository?.split('/')[1] ?? session.repository;
-                const canInsert = onInsert && !!session.pullRequestUrl;
 
                 return (
                   <li
@@ -142,21 +138,15 @@ export default function AgentSessions({
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        {session.pullRequestUrl ? (
-                          <a
-                            href={session.pullRequestUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm font-medium text-foreground truncate leading-snug hover:underline min-w-0"
-                          >
-                            {session.name}
-                          </a>
-                        ) : (
-                          <span className="text-sm font-medium text-foreground truncate leading-snug min-w-0">
-                            {session.name}
-                          </span>
-                        )}
-                        {canInsert && (
+                        <a
+                          href={session.taskUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm font-medium text-foreground truncate leading-snug hover:underline min-w-0"
+                        >
+                          {session.name}
+                        </a>
+                        {onInsert && (
                           <button
                             onClick={() => onInsert(insertText(session))}
                             title="Insert link at cursor"

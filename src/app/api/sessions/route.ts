@@ -12,6 +12,7 @@ export type AgentSession = {
   pullRequestNumber: number | null;
   pullRequestState: 'OPEN' | 'MERGED' | 'CLOSED' | null;
   pullRequestUrl: string | null;
+  taskUrl: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -23,11 +24,12 @@ const GH_FIELDS = [
   'state',
   'pullRequestNumber',
   'pullRequestState',
+  'pullRequestUrl',
   'createdAt',
   'updatedAt',
 ].join(',');
 
-type RawTask = Omit<AgentSession, 'pullRequestUrl'>;
+type RawTask = Omit<AgentSession, 'taskUrl'>;
 
 async function fetchTasks(limit: number): Promise<RawTask[]> {
   if (limit < 5) throw new Error('Minimum limit reached with no successful response');
@@ -52,13 +54,12 @@ async function fetchTasks(limit: number): Promise<RawTask[]> {
 export async function GET() {
   try {
     const raw = await fetchTasks(30);
-    const sessions: AgentSession[] = raw.map((s) => ({
-      ...s,
-      pullRequestUrl:
-        s.repository && s.pullRequestNumber
-          ? `https://github.com/${s.repository}/pull/${s.pullRequestNumber}`
-          : null,
-    }));
+    const sessions: AgentSession[] = raw
+      .filter((s) => s.pullRequestState !== 'MERGED')
+      .map((s) => ({
+        ...s,
+        taskUrl: `https://github.com/copilot/agents/${s.id}`,
+      }));
     console.log(`[sessions] Returning ${sessions.length} agent tasks`);
     return NextResponse.json(sessions);
   } catch (err) {
