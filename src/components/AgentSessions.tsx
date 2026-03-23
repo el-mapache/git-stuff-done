@@ -125,7 +125,7 @@ export default function AgentSessions({
 
         {!loading && groups.map(([bucket, items]) => (
           <div key={bucket}>
-            <div className="px-4 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/40 border-b border-border sticky top-0">
+            <div className="px-4 py-1.5 text-xs font-semibold text-muted-foreground bg-muted border-b border-border sticky top-0">
               {bucket}
             </div>
             <ul className="divide-y divide-border">
