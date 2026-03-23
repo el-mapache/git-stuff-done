@@ -11,13 +11,14 @@ import TodoList from './TodoList';
 import MyPRs from './MyPRs';
 import MyIssues from './MyIssues';
 import GitHubNotifications from './GitHubNotifications';
+import AgentSessions from './AgentSessions';
 import AiModal from './AiModal';
 import SummariesModal from './SummariesModal';
 import CalendarPicker from './CalendarPicker';
 import { GITHUB_ORG } from '@/lib/constants';
 import { DEMO_CONFIG } from '@/lib/demo';
 
-type PanelId = 'log' | 'todos' | 'prs' | 'issues' | 'notifs';
+type PanelId = 'log' | 'todos' | 'prs' | 'issues' | 'notifs' | 'sessions';
 type LayoutMode = 'grid' | 'column';
 
 const PANEL_LABELS: Record<PanelId, string> = {
@@ -26,8 +27,9 @@ const PANEL_LABELS: Record<PanelId, string> = {
   prs: 'My PRs',
   issues: 'My Issues',
   notifs: 'Notifications',
+  sessions: 'Agent Sessions',
 };
-const ALL_PANELS: PanelId[] = ['log', 'todos', 'prs', 'issues', 'notifs'];
+const ALL_PANELS: PanelId[] = ['log', 'todos', 'prs', 'issues', 'notifs', 'sessions'];
 
 type CommitState = 'idle' | 'committing' | 'success' | 'no-changes' | 'error';
 
@@ -515,6 +517,7 @@ export default function Dashboard() {
       case 'prs': return panelCard(id, <MyPRs isDemo={isDemo} onInsert={(text) => insertAtCursorRef.current?.(text)} />);
       case 'issues': return panelCard(id, <MyIssues isDemo={isDemo} onInsert={(text) => insertAtCursorRef.current?.(text)} />);
       case 'notifs': return panelCard(id, <GitHubNotifications refreshTrigger={notifsKey} isDemo={isDemo} onInsert={(text) => insertAtCursorRef.current?.(text)} />);
+      case 'sessions': return panelCard(id, <AgentSessions isDemo={isDemo} onInsert={(text) => insertAtCursorRef.current?.(text)} />);
     }
   }
 
