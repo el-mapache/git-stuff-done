@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Bot, GitBranch } from 'lucide-react';
 import { useVisibilityPolling } from '@/hooks/useVisibilityPolling';
 import type { AgentSession } from '@/app/api/sessions/route';
@@ -41,9 +41,12 @@ function groupByDate(sessions: AgentSession[]): [string, AgentSession[]][] {
 }
 
 function insertText(session: AgentSession): string {
-  const url = session.repository
-    ? `https://github.com/${session.repository}/tree/${session.branch}`
-    : '';
+  const url =
+    session.repository && session.branch
+      ? `https://github.com/${session.repository}/tree/${session.branch}`
+      : session.repository
+      ? `https://github.com/${session.repository}`
+      : '';
   return url ? `[${session.summary}](${url})` : session.summary;
 }
 
@@ -80,23 +83,29 @@ export default function AgentSessions({
 
   useVisibilityPolling(refresh, 5 * 60_000);
 
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  useEffect(() => () => { abortRef.current?.abort(); }, []);
+
   const groups = groupByDate(sessions);
 
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <span className="text-base font-semibold text-primary flex items-center gap-2">
+        <h2 className="text-base font-semibold text-primary flex items-center gap-2">
           <Bot className="h-4 w-4" aria-hidden="true" />
           Agent Sessions
-        </span>
+        </h2>
         <span className="text-xs text-muted-foreground">
           {sessions.length > 0 ? `${sessions.length} sessions` : ''}
         </span>
       </div>
 
       {/* Body */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-y-auto">
         {loading && (
           <div className="divide-y divide-border">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -136,7 +145,7 @@ export default function AgentSessions({
                           onClick={() => onInsert(insertText(session))}
                           title="Insert link at cursor"
                           aria-label={`Insert link for "${session.summary}"`}
-                          className="mt-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity rounded p-0.5 text-muted-foreground hover:text-foreground hover:bg-muted"
+                          className="mt-0.5 shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all rounded p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                         >
                           <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
                             <path d="M11.013 1.427a1.75 1.75 0 0 1 2.474 0l1.086 1.086a1.75 1.75 0 0 1 0 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 0 1-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61Zm.176 4.823L9.75 4.81l-6.286 6.287a.253.253 0 0 0-.064.108l-.558 1.953 1.953-.558a.253.253 0 0 0 .108-.064Zm1.238-3.763a.25.25 0 0 0-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 0 0 0-.354Z" />
