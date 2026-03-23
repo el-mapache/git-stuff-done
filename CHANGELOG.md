@@ -4,6 +4,10 @@ All notable changes to git-stuff-done are documented here.
 
 ## [Unreleased] — 2026-03-23
 
+### Added
+- **Agent Sessions panel** — reads Copilot CLI session history from `~/.copilot/session-store.db`; sessions grouped by date (Today / Yesterday / This Week / Older) with turn count, linked PR/commit badges, and hover-to-insert into Work Log; hidden by default, enabled via panel menu
+- New `GET /api/sessions` route backed by `better-sqlite3`
+
 ### Fixed
 - Linkify button remained permanently disabled when starting a new empty log and typing — `content` state was never updated from editor input, only from the API fetch on load
 - Trailing space now inserted after links pasted or inserted into the log editor, so the cursor escapes the link node and typing continues naturally
