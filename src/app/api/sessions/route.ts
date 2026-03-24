@@ -56,13 +56,16 @@ export async function GET() {
     const raw = await fetchTasks(30);
     const sessions: AgentSession[] = raw
       .filter((s) => s.pullRequestNumber !== null && s.pullRequestState !== 'MERGED')
-      .map((s) => ({
-        ...s,
-        taskUrl:
-          s.repository && s.pullRequestNumber
-            ? `${s.pullRequestUrl}/agent-sessions/${s.id}`
-            : null,
-      }));
+      .map((s) => {
+        const prUrl = s.pullRequestUrl ?? (s.repository && s.pullRequestNumber
+          ? `https://github.com/${s.repository}/pull/${s.pullRequestNumber}`
+          : null);
+        return {
+          ...s,
+          pullRequestUrl: prUrl,
+          taskUrl: prUrl ? `${prUrl}/agent-sessions/${s.id}` : null,
+        };
+      });
     console.log(`[sessions] Returning ${sessions.length} agent tasks`);
     return NextResponse.json(sessions);
   } catch (err) {

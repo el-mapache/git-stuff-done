@@ -192,7 +192,7 @@ export default function AgentSessions({
                                   : 'bg-violet-50 text-violet-700 ring-violet-600/20 dark:bg-violet-500/10 dark:text-violet-400 dark:ring-violet-500/20'
                               }`}
                             >
-                              {session.pullRequestState === 'MERGED' ? 'Merged' : session.pullRequestState === 'CLOSED' ? 'Closed' : 'Open'} #{session.pullRequestNumber}
+                              {session.pullRequestState === 'MERGED' ? 'Merged' : session.pullRequestState === 'CLOSED' ? 'Closed' : session.pullRequestState === 'OPEN' ? 'Open' : 'Draft'} #{session.pullRequestNumber}
                             </a>
                           )}
                           {session.state !== 'completed' && (
