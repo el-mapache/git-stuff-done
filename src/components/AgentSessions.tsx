@@ -41,8 +41,8 @@ function groupByDate(sessions: AgentSession[]): [string, AgentSession[]][] {
 }
 
 function insertText(session: AgentSession): string {
-  const url = session.pullRequestUrl ?? session.taskUrl;
-  return `[${session.name}](${url})`;
+  const url = session.pullRequestUrl ?? session.taskUrl ?? '';
+  return url ? `[${session.name}](${url})` : session.name;
 }
 
 export default function AgentSessions({
@@ -156,14 +156,20 @@ export default function AgentSessions({
                         </button>
                       )}
                       <div className="min-w-0 flex-1">
-                        <a
-                          href={session.taskUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm font-medium text-foreground truncate leading-snug hover:underline block"
-                        >
-                          {session.name}
-                        </a>
+                        {session.taskUrl ? (
+                          <a
+                            href={session.taskUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-medium text-foreground truncate leading-snug hover:underline block"
+                          >
+                            {session.name}
+                          </a>
+                        ) : (
+                          <span className="text-sm font-medium text-foreground truncate leading-snug block">
+                            {session.name}
+                          </span>
+                        )}
                         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
                           {repoShort && (
                             <span className="flex items-center gap-1">

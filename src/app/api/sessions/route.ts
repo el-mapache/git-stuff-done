@@ -12,7 +12,7 @@ export type AgentSession = {
   pullRequestNumber: number | null;
   pullRequestState: 'OPEN' | 'MERGED' | 'CLOSED' | null;
   pullRequestUrl: string | null;
-  taskUrl: string;
+  taskUrl: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -58,9 +58,10 @@ export async function GET() {
       .filter((s) => s.pullRequestState !== 'MERGED')
       .map((s) => ({
         ...s,
-        taskUrl: s.repository
-          ? `https://github.com/${s.repository}/tasks/${s.id}`
-          : `https://github.com/copilot/agents/${s.id}`,
+        taskUrl:
+          s.repository && s.pullRequestNumber
+            ? `${s.pullRequestUrl}/agent-sessions/${s.id}`
+            : null,
       }));
     console.log(`[sessions] Returning ${sessions.length} agent tasks`);
     return NextResponse.json(sessions);
