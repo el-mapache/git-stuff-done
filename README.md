@@ -8,7 +8,7 @@
 
 ## Features
 
-- **📝 Work Log Editor** — A rich hybrid editor. Type markdown naturally — headings, bold, lists, and links render inline as you type. Drag-and-drop or paste images to attach them — they're stored in the repo and shown as thumbnails at the bottom of each log entry. Click a thumbnail to view the full-size image.
+- **📝 Work Log Editor** — A rich hybrid editor. Type markdown naturally — headings, bold, lists, and links render inline as you type. Drag-and-drop or paste images directly where you want them — they appear as inline thumbnails with a delete button, and clicking opens the full-size image. Images are stored in the repo at full resolution.
 - **📅 Date Navigation** — Browse past logs with a calendar picker. Dates that have content show a dot indicator. Use ← / → to step day by day, or click **Today** to jump back.
 - **🪄 Linkify** — Click **🪄 Linkify** to resolve bare GitHub URLs to titled markdown links. Updates the log in-place.
 - **📊 Work Log Summary** — Generate AI-powered summaries of your work logs for daily standups or weekly reports. Choose the AI model, pick a date range, and **save summaries** directly to your repo in `summaries/`.

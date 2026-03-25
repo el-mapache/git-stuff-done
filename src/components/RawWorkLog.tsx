@@ -1,10 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FileText, Link2, X } from 'lucide-react';
+import { AlertTriangle, FileText, Link2 } from 'lucide-react';
 import TiptapEditor, { type TiptapEditorHandle } from './TiptapEditor';
-import ImageLightbox from './ImageLightbox';
 import { DEMO_LOG_CONTENT, DEMO_RICH_LOG_CONTENT } from '@/lib/demo';
+import { PLACEHOLDER_PREFIX } from '@/lib/customImage';
 
 type SaveStatus = 'idle' | 'unsaved' | 'saving' | 'saved';
 
@@ -30,9 +30,9 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
   const [content, setContent] = useState('');
   const [status, setStatus] = useState<SaveStatus>('idle');
   const [linkifying, setLinkifying] = useState(false);
-  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
-  const [attachments, setAttachments] = useState<string[]>([]);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestContentRef = useRef(content);
   const editorRef = useRef<TiptapEditorHandle>(null);
 
@@ -54,17 +54,6 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
       }
     }
     fetchLog();
-    return () => { cancelled = true; };
-  }, [currentDate, isDemo]);
-
-  // Fetch existing attachments for the current date
-  useEffect(() => {
-    if (isDemo) { setAttachments([]); return; }
-    let cancelled = false;
-    fetch(`/api/attachments?date=${currentDate}`)
-      .then(r => r.json())
-      .then(d => { if (!cancelled) setAttachments(d.files || []); })
-      .catch(() => { if (!cancelled) setAttachments([]); });
     return () => { cancelled = true; };
   }, [currentDate, isDemo]);
 
@@ -122,18 +111,11 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
 
   const handleEditorUpdate = useCallback((markdown: string) => {
     latestContentRef.current = markdown;
-    scheduleAutosave(markdown);
+    // Pause auto-save while any image upload placeholder is in the document
+    if (!markdown.includes(PLACEHOLDER_PREFIX)) {
+      scheduleAutosave(markdown);
+    }
   }, [scheduleAutosave]);
-
-  // Refetch the canonical attachment list from the server
-  const refreshAttachments = useCallback(async () => {
-    if (isDemo) return;
-    try {
-      const res = await fetch(`/api/attachments?date=${currentDate}`);
-      const data = await res.json();
-      setAttachments(data.files || []);
-    } catch { /* ignore */ }
-  }, [currentDate, isDemo]);
 
   const handleImageUpload = useCallback(async (file: File): Promise<string> => {
     if (isDemo) throw new Error('Upload disabled in demo mode');
@@ -143,17 +125,21 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
     const res = await fetch('/api/attachments', { method: 'POST', body: formData });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Upload failed');
-    await refreshAttachments();
     return data.url;
-  }, [currentDate, isDemo, refreshAttachments]);
+  }, [currentDate, isDemo]);
 
-  const handleDeleteAttachment = useCallback(async (url: string) => {
+  const handleDeleteImage = useCallback(async (url: string) => {
     if (isDemo) return;
     try {
-      const res = await fetch(url, { method: 'DELETE' });
-      if (res.ok) await refreshAttachments();
+      await fetch(url, { method: 'DELETE' });
     } catch { /* ignore */ }
-  }, [isDemo, refreshAttachments]);
+  }, [isDemo]);
+
+  const handleUploadError = useCallback((msg: string) => {
+    setUploadError(msg);
+    if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
+    errorTimerRef.current = setTimeout(() => setUploadError(null), 4000);
+  }, []);
 
   const insertAtCursor = useCallback((text: string) => {
     editorRef.current?.insertAtCursor(text);
@@ -164,22 +150,14 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
   }, [onRegisterInsert, insertAtCursor]);
 
   useEffect(() => {
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
+    };
   }, []);
 
   return (
-    <div
-      className="flex h-full flex-col"
-      onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault(); }}
-      onDrop={async (e) => {
-        const images = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
-        if (!images.length) return;
-        e.preventDefault();
-        for (const file of images) {
-          try { await handleImageUpload(file); } catch { /* ignore */ }
-        }
-      }}
-    >
+    <div className="flex h-full flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <span className="text-base font-semibold text-primary flex items-center gap-2">
           <FileText className="h-4 w-4" aria-hidden="true" />
@@ -208,31 +186,14 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
         onUpdate={handleEditorUpdate}
         placeholder="Start typing your work log..."
         onImageUpload={handleImageUpload}
+        onDeleteImage={handleDeleteImage}
+        onUploadError={handleUploadError}
       />
-      {attachments.length > 0 && (
-        <div className="shrink-0 border-t border-border px-3 py-2 flex items-center gap-2 flex-wrap">
-          {attachments.map(url => (
-            <div key={url} className="relative group">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={url}
-                alt=""
-                className="max-h-[80px] max-w-[160px] w-auto h-auto rounded-md border border-border cursor-pointer object-contain transition-opacity hover:opacity-75"
-                onClick={() => setLightboxSrc(url)}
-              />
-              <button
-                onClick={() => handleDeleteAttachment(url)}
-                className="absolute -top-1.5 -right-1.5 hidden group-hover:flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-sm transition-colors hover:opacity-90"
-                aria-label="Delete attachment"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          ))}
+      {uploadError && (
+        <div className="shrink-0 border-t border-destructive/20 px-4 py-2.5 bg-destructive/10 text-destructive text-sm flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+          {uploadError}
         </div>
-      )}
-      {lightboxSrc && (
-        <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
       )}
     </div>
   );
