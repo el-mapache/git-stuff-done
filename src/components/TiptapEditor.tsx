@@ -7,7 +7,10 @@ import Placeholder from '@tiptap/extension-placeholder';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import { Markdown } from 'tiptap-markdown';
+import Mention from '@tiptap/extension-mention';
+import { ReactRenderer } from '@tiptap/react';
 import { useEffect, useImperativeHandle, forwardRef, useRef } from 'react';
+import MentionList, { type MentionItem, type MentionListHandle } from './MentionList';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getMarkdown(editor: { storage: any }): string {
@@ -23,6 +26,62 @@ interface TiptapEditorProps {
   onUpdate: (markdown: string) => void;
   placeholder?: string;
 }
+
+let fetchController: AbortController | null = null;
+
+async function fetchMentionItems(query: string): Promise<MentionItem[]> {
+  // Cancel any previous in-flight request
+  if (fetchController) fetchController.abort();
+  if (!query) return [];
+
+  const controller = new AbortController();
+  fetchController = controller;
+
+  try {
+    const params = new URLSearchParams({ q: query });
+    const res = await fetch(`/api/org-members?${params}`, { signal: controller.signal });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.members ?? [];
+  } catch {
+    // Aborted or network error
+    return [];
+  }
+}
+
+const CustomMention = Mention.extend({
+  // Render mentions as bold linked text in the editor HTML
+  renderHTML({ node, HTMLAttributes }) {
+    const login = node.attrs.label ?? node.attrs.id;
+    return [
+      'a',
+      {
+        ...HTMLAttributes,
+        href: `https://github.com/${login}`,
+        target: '_blank',
+        rel: 'noopener noreferrer',
+        class: 'mention-node',
+        'data-type': 'mention',
+        'data-id': node.attrs.id,
+        'data-label': node.attrs.label,
+      },
+      `@${login}`,
+    ];
+  },
+
+  // Override markdown serialization via the tiptap-markdown storage hook
+  addStorage() {
+    return {
+      markdown: {
+        serialize(state: { write: (text: string) => void }, node: { attrs: { id: string; label?: string } }) {
+          const login = node.attrs.label ?? node.attrs.id;
+          state.write(`**[@${login}](https://github.com/${login})**`);
+        },
+        parse: {},
+      },
+    };
+  },
+});
 
 const TiptapEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(
   ({ content, onUpdate, placeholder }, ref) => {
@@ -48,6 +107,80 @@ const TiptapEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(
         }),
         TaskList,
         TaskItem.configure({ nested: true }),
+        CustomMention.configure({
+          HTMLAttributes: { class: 'mention-node' },
+          renderText({ node }) {
+            return `@${node.attrs.label ?? node.attrs.id}`;
+          },
+          suggestion: {
+            char: '@',
+            allowSpaces: false,
+            items: async ({ query }: { query: string }) => {
+              return fetchMentionItems(query);
+            },
+            render: () => {
+              let renderer: ReactRenderer<MentionListHandle> | null = null;
+              let popup: HTMLDivElement | null = null;
+
+              return {
+                onStart(props) {
+                  renderer = new ReactRenderer(MentionList, {
+                    props: {
+                      items: props.items,
+                      query: props.query,
+                      command: (item: MentionItem) => {
+                        props.command({ id: item.login, label: item.login });
+                      },
+                    },
+                    editor: props.editor,
+                  });
+
+                  popup = document.createElement('div');
+                  popup.style.cssText = 'position:fixed;z-index:9999;';
+                  popup.appendChild(renderer.element);
+                  document.body.appendChild(popup);
+
+                  const rect = props.clientRect?.();
+                  if (rect && popup) {
+                    popup.style.left = `${rect.left}px`;
+                    popup.style.top = `${rect.bottom + 4}px`;
+                  }
+                },
+                onUpdate(props) {
+                  renderer?.updateProps({
+                    items: props.items,
+                    query: props.query,
+                    command: (item: MentionItem) => {
+                      props.command({ id: item.login, label: item.login });
+                    },
+                  });
+
+                  const rect = props.clientRect?.();
+                  if (rect && popup) {
+                    popup.style.left = `${rect.left}px`;
+                    popup.style.top = `${rect.bottom + 4}px`;
+                  }
+                },
+                onKeyDown(props) {
+                  if (props.event.key === 'Escape') {
+                    popup?.remove();
+                    popup = null;
+                    renderer?.destroy();
+                    renderer = null;
+                    return true;
+                  }
+                  return renderer?.ref?.onKeyDown(props) ?? false;
+                },
+                onExit() {
+                  popup?.remove();
+                  popup = null;
+                  renderer?.destroy();
+                  renderer = null;
+                },
+              };
+            },
+          },
+        }),
         Markdown.configure({
           tightLists: true,
           linkify: true,
