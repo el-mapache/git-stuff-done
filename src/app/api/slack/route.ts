@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { DEMO_SLACK_THREAD } from '@/lib/demo';
 
 const execAsync = promisify(exec);
 
@@ -8,6 +9,11 @@ export async function GET(request: NextRequest) {
   const url = request.nextUrl.searchParams.get('url');
   if (!url) {
     return NextResponse.json({ error: 'Missing url parameter' }, { status: 400 });
+  }
+
+  // Return demo data for example.slack.com URLs (used in demo mode)
+  if (url.includes('example.slack.com')) {
+    return NextResponse.json({ markdown: DEMO_SLACK_THREAD });
   }
 
   try {
