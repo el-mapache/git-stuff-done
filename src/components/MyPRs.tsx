@@ -52,7 +52,8 @@ export default function MyPRs({
   const [loading, setLoading] = useState(_prCache === null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (showLoading = false) => {
+    if (showLoading) setLoading(true);
     try {
       if (isDemo) {
         setPrs(DEMO_PRS);
@@ -74,8 +75,9 @@ export default function MyPRs({
     }
   }, [isDemo]);
 
+  // Initial fetch shows loading only if cache is empty
   useEffect(() => {
-    refresh();
+    refresh(_prCache === null);
   }, [refresh]);
   useVisibilityPolling(refresh, 120_000);
   useEffect(
@@ -93,7 +95,7 @@ export default function MyPRs({
           My PRs
         </h2>
         <button
-          onClick={refresh}
+          onClick={() => refresh(true)}
           className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
           aria-label="Refresh PRs"
         >

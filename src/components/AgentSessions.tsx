@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Bot, GitPullRequest } from 'lucide-react';
+import { Bot, GitPullRequest, CheckCircle } from 'lucide-react';
 import { useVisibilityPolling } from '@/hooks/useVisibilityPolling';
 import type { AgentSession } from '@/app/api/sessions/route';
 
@@ -56,7 +56,8 @@ export default function AgentSessions({
   const [loading, setLoading] = useState(_sessionCache === null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (showLoading = false) => {
+    if (showLoading) setLoading(true);
     if (isDemo) {
       setLoading(false);
       return;
@@ -78,8 +79,9 @@ export default function AgentSessions({
 
   useVisibilityPolling(refresh, 5 * 60_000);
 
+  // Initial fetch shows loading only if cache is empty
   useEffect(() => {
-    refresh();
+    refresh(_sessionCache === null);
   }, [refresh]);
 
   useEffect(() => () => { abortRef.current?.abort(); }, []);
@@ -101,24 +103,39 @@ export default function AgentSessions({
             Agent Sessions
           </a>
         </h2>
+        <button
+          onClick={() => refresh(true)}
+          className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          aria-label="Refresh Agent Sessions"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-4 w-4"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path
+              fillRule="evenodd"
+              d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </button>
       </div>
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto">
         {loading && (
-          <div className="divide-y divide-border">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="px-4 py-3 space-y-1.5 animate-pulse">
-                <div className="h-3.5 bg-muted rounded w-3/4" />
-                <div className="h-3 bg-muted rounded w-1/2" />
-              </div>
-            ))}
+          <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+            Loading…
           </div>
         )}
 
         {!loading && sessions.length === 0 && (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground px-6 text-center">
-            {isDemo ? 'Agent Sessions not available in demo mode.' : 'No sessions found.'}
+          <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+            <CheckCircle className="h-4 w-4" aria-hidden="true" />
+            {isDemo ? 'Agent Sessions not available in demo mode' : 'No sessions found'}
           </div>
         )}
 
