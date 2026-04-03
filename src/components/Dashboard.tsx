@@ -534,17 +534,20 @@ export default function Dashboard() {
     }
 
     if (layout === 'column') {
+      const minHeightPx = visible.length * 400;
       return (
-        <PanelGroup key={`col-${visible.join(',')}`} orientation="vertical" className="min-h-0 flex-1 p-3">
-          {visible.map((id, i) => (
-            <Fragment key={id}>
-              {i > 0 && <PanelResizeHandle className="my-1 h-1.5 rounded-full transition hover:bg-accent active:bg-primary/50" />}
-              <Panel defaultSize={100 / visible.length} minSize={10}>
-                {panelContent(id)}
-              </Panel>
-            </Fragment>
-          ))}
-        </PanelGroup>
+        <div className="overflow-y-auto flex-1 min-h-0">
+          <PanelGroup key={`col-${visible.join(',')}`} orientation="vertical" className="p-3" style={{ height: '100%', minHeight: minHeightPx }}>
+            {visible.map((id, i) => (
+              <Fragment key={id}>
+                {i > 0 && <PanelResizeHandle className="my-1 h-1.5 rounded-full transition hover:bg-accent active:bg-primary/50" />}
+                <Panel defaultSize={100 / visible.length} minSize={`150px`}>
+                  {panelContent(id)}
+                </Panel>
+              </Fragment>
+            ))}
+          </PanelGroup>
+        </div>
       );
     }
 
