@@ -22,7 +22,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Upload, Moon, Sun, BarChart2, Search, Settings, LayoutGrid, LayoutList, Menu, X, ChevronLeft, ChevronRight, FileText, Check, Minus, Sparkles } from 'lucide-react';
+import { Upload, Moon, Sun, BarChart2, Search, Settings, LayoutGrid, LayoutList, Menu, X, ChevronLeft, ChevronRight, FileText, Check, Minus, Sparkles, GripVertical } from 'lucide-react';
 import RawWorkLog from './RawWorkLog';
 import TodoList from './TodoList';
 import MyPRs from './MyPRs';
@@ -619,13 +619,15 @@ export default function Dashboard() {
           </svg>
         </button>
         <div className="h-full overflow-hidden rounded-2xl border border-border bg-card panel-enter panel-shadow transition-colors">
-          {/* Drag handle — covers only the title bar height (~44px), shows grab cursor */}
+          {/* Drag handle — small grip icon on the left of the title bar, appears on hover */}
           {handleListeners && (
             <div
               {...handleListeners}
-              className="absolute inset-x-0 top-0 h-11 z-[5] cursor-grab active:cursor-grabbing"
+              className="absolute left-1.5 top-2.5 z-20 p-1 rounded cursor-grab active:cursor-grabbing opacity-0 group-hover/card:opacity-100 transition-opacity text-muted-foreground hover:text-foreground hover:bg-muted"
               aria-label={`Drag ${PANEL_LABELS[id]}`}
-            />
+            >
+              <GripVertical className="h-3.5 w-3.5" />
+            </div>
           )}
           {children}
         </div>
