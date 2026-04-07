@@ -8,7 +8,7 @@
 
 ## Features
 
-- **📝 Work Log Editor** — A rich hybrid editor. Type markdown naturally — headings, bold, lists, and links render inline as you type.
+- **📝 Work Log Editor** — A rich hybrid editor. Type markdown naturally — headings, bold, lists, code fences, and links render inline as you type. Type `` ``` `` (with optional language) and press Enter to create a code block; or use full fence syntax (opening `` ``` ``, content lines, closing `` ``` `` + Enter) to wrap existing text in a code block.
 - **📅 Date Navigation** — Browse past logs with a calendar picker. Dates that have content show a dot indicator. Use ← / → to step day by day, or click **Today** to jump back.
 - **🪄 Linkify** — Click **🪄 Linkify** to resolve bare GitHub URLs to titled markdown links. Updates the log in-place.
 - **✨ AI Assistant** — A unified modal (toolbar ✨ button) with two modes:
