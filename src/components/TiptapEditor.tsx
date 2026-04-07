@@ -3,6 +3,7 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import { Extension } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
+import { ListItem } from "@tiptap/extension-list-item";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import TaskList from "@tiptap/extension-task-list";
@@ -10,7 +11,7 @@ import TaskItem from "@tiptap/extension-task-item";
 import { Markdown } from "tiptap-markdown";
 import Mention from "@tiptap/extension-mention";
 import { ReactRenderer } from "@tiptap/react";
-import { Plugin } from "@tiptap/pm/state";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { useEffect, useImperativeHandle, forwardRef, useRef } from "react";
 import MentionList, {
   type MentionItem,
@@ -30,6 +31,107 @@ const TrailingSpaceAfterPaste = Extension.create({
               ext.editor.chain().focus().insertContent(" ").run();
             }, 0);
             return false;
+          },
+        },
+      }),
+    ];
+  },
+});
+
+const codeFenceRe = /^```([a-z]*)$/;
+
+// Handles Enter on a line matching ```.
+//  - If a matching opening ``` exists above → wraps intervening paragraphs into
+//    a codeBlock (closing-fence behaviour).
+//  - Otherwise → clears the backticks and converts the paragraph to an empty
+//    codeBlock (opening-fence behaviour).
+//
+// Uses a high-priority ProseMirror plugin so it fires before the list-item
+// Enter handler that would otherwise split the list item.
+const CodeFenceShortcut = Extension.create({
+  name: "codeFenceShortcut",
+  priority: 200,
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: new PluginKey("codeFenceShortcut"),
+        props: {
+          handleKeyDown: (view, event) => {
+            if (event.key !== "Enter") return false;
+
+            const { state } = view;
+            const { $from, empty } = state.selection;
+            if (!empty) return false;
+
+            const node = $from.parent;
+            if (node.type.name !== "paragraph") return false;
+
+            const text = node.textContent;
+            const match = text.match(codeFenceRe);
+            if (!match) return false;
+
+            const parent = $from.node(-1);
+            const myIndex = $from.index(-1);
+
+            // Try closing-fence: search backward for an opening ```
+            for (
+              let i = myIndex - 1;
+              i >= 0 && i >= myIndex - 100;
+              i--
+            ) {
+              const sibling = parent.child(i);
+              if (sibling.type.name !== "paragraph") break;
+              const m = sibling.textContent.match(codeFenceRe);
+              if (m) {
+                // Found opening fence → collect content lines between fences
+                const language = m[1] || "";
+                const lines: string[] = [];
+                for (let j = i + 1; j < myIndex; j++) {
+                  lines.push(parent.child(j).textContent);
+                }
+                const codeContent = lines.join("\n");
+
+                // Calculate document range spanning opening → closing paragraphs
+                let rangeStart = $from.start(-1);
+                for (let k = 0; k < i; k++)
+                  rangeStart += parent.child(k).nodeSize;
+                let rangeEnd = rangeStart;
+                for (let k = i; k <= myIndex; k++)
+                  rangeEnd += parent.child(k).nodeSize;
+
+                const codeBlockNode =
+                  state.schema.nodes.codeBlock.create(
+                    { language: language || null },
+                    codeContent
+                      ? state.schema.text(codeContent)
+                      : null,
+                  );
+
+                view.dispatch(
+                  state.tr.replaceWith(
+                    rangeStart,
+                    rangeEnd,
+                    codeBlockNode,
+                  ),
+                );
+                return true;
+              }
+            }
+
+            // No opening fence found → opening-fence: create empty code block
+            const language = match[1] || "";
+            const { tr } = state;
+            const start = $from.start();
+            const end = $from.end();
+            if (end > start) tr.delete(start, end);
+            tr.setBlockType(
+              tr.mapping.map(start),
+              tr.mapping.map(start),
+              state.schema.nodes.codeBlock,
+              { language: language || null },
+            );
+            view.dispatch(tr);
+            return true;
           },
         },
       }),
@@ -125,7 +227,8 @@ const TiptapEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(
     const editor = useEditor({
       immediatelyRender: false,
       extensions: [
-        StarterKit,
+        StarterKit.configure({ listItem: false }),
+        ListItem.extend({ content: "(paragraph | codeBlock) block*" }),
         Link.configure({
           openOnClick: true,
           autolink: true,
@@ -220,6 +323,7 @@ const TiptapEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(
           transformCopiedText: true,
         }),
         TrailingSpaceAfterPaste,
+        CodeFenceShortcut,
       ],
       content,
       onUpdate: ({ editor }) => {

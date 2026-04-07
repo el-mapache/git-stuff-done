@@ -218,6 +218,10 @@ pre {
   margin-bottom: 0;
 }
 
+.tiptap-editor .tiptap li pre {
+  margin: 0.25rem 0;
+}
+
 .tiptap-editor .tiptap a {
   color: var(--accent-foreground);
   text-decoration: underline;
@@ -504,6 +508,10 @@ select:focus-visible {
 
 .markdown-viewer .tiptap li p {
   margin-bottom: 0;
+}
+
+.markdown-viewer .tiptap li pre {
+  margin: 0.25rem 0;
 }
 
 .markdown-viewer .tiptap a {
