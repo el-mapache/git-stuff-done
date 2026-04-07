@@ -511,7 +511,7 @@ export default function Dashboard() {
             <div
               ref={aiMenuRef}
               style={{ position: 'fixed', top: aiMenuPos.top, left: aiMenuPos.left, transform: 'translateX(-100%)', zIndex: 9999 }}
-              className="w-52 rounded-xl border border-border bg-popover shadow-xl p-2 select-none"
+              className="min-w-52 whitespace-nowrap rounded-xl border border-border bg-popover shadow-xl p-2 select-none"
             >
               <button
                 onClick={() => { setAiModalTab('search'); setAiMenuOpen(false); }}
