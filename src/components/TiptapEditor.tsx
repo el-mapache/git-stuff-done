@@ -42,13 +42,13 @@ const TrailingSpaceAfterPaste = Extension.create({
 const codeFenceRe = /^```([a-z]*)$/;
 
 // Handles Enter on a line matching ```.
-//  - If a matching opening ``` exists above → wraps intervening paragraphs into
+//  - If a matching opening ``` exists above → wraps intervening nodes into
 //    a codeBlock (closing-fence behaviour).
-//  - Otherwise → clears the backticks and converts the paragraph to an empty
-//    codeBlock (opening-fence behaviour).
+//  - Otherwise → replaces the paragraph with an empty codeBlock (opening-fence).
 //
-// Uses a high-priority ProseMirror plugin so it fires before the list-item
-// Enter handler that would otherwise split the list item.
+// Works in any context: top-level paragraphs, list items, blockquotes, etc.
+// Uses a high-priority ProseMirror plugin so it fires before the default
+// Enter handler and the list-item split handler.
 const CodeFenceShortcut = Extension.create({
   name: "codeFenceShortcut",
   priority: 200,
@@ -71,6 +71,7 @@ const CodeFenceShortcut = Extension.create({
             const match = text.match(codeFenceRe);
             if (!match) return false;
 
+            const codeBlockType = state.schema.nodes.codeBlock;
             const parent = $from.node(-1);
             const myIndex = $from.index(-1);
 
@@ -81,57 +82,65 @@ const CodeFenceShortcut = Extension.create({
               i--
             ) {
               const sibling = parent.child(i);
-              if (sibling.type.name !== "paragraph") break;
+              // Don't search across existing code blocks
+              if (sibling.type.name === "codeBlock") break;
+              // Only paragraphs can be opening fences — skip other node types
+              if (sibling.type.name !== "paragraph") continue;
               const m = sibling.textContent.match(codeFenceRe);
-              if (m) {
-                // Found opening fence → collect content lines between fences
-                const language = m[1] || "";
-                const lines: string[] = [];
-                for (let j = i + 1; j < myIndex; j++) {
-                  lines.push(parent.child(j).textContent);
-                }
-                const codeContent = lines.join("\n");
+              if (!m) continue;
 
-                // Calculate document range spanning opening → closing paragraphs
-                let rangeStart = $from.start(-1);
-                for (let k = 0; k < i; k++)
-                  rangeStart += parent.child(k).nodeSize;
-                let rangeEnd = rangeStart;
-                for (let k = i; k <= myIndex; k++)
-                  rangeEnd += parent.child(k).nodeSize;
-
-                const codeBlockNode =
-                  state.schema.nodes.codeBlock.create(
-                    { language: language || null },
-                    codeContent
-                      ? state.schema.text(codeContent)
-                      : null,
-                  );
-
-                view.dispatch(
-                  state.tr.replaceWith(
-                    rangeStart,
-                    rangeEnd,
-                    codeBlockNode,
-                  ),
-                );
-                return true;
+              // Found opening fence → collect content lines between fences
+              const language = m[1] || "";
+              const lines: string[] = [];
+              for (let j = i + 1; j < myIndex; j++) {
+                lines.push(parent.child(j).textContent);
               }
+              const codeContent = lines.join("\n");
+
+              // Calculate document range spanning opening → closing nodes
+              let rangeStart = $from.start(-1);
+              for (let k = 0; k < i; k++)
+                rangeStart += parent.child(k).nodeSize;
+              let rangeEnd = rangeStart;
+              for (let k = i; k <= myIndex; k++)
+                rangeEnd += parent.child(k).nodeSize;
+
+              const codeBlockNode = codeBlockType.create(
+                { language: language || null },
+                codeContent
+                  ? state.schema.text(codeContent)
+                  : null,
+              );
+
+              view.dispatch(
+                state.tr.replaceWith(
+                  rangeStart,
+                  rangeEnd,
+                  codeBlockNode,
+                ),
+              );
+              return true;
             }
 
             // No opening fence found → opening-fence: create empty code block
             const language = match[1] || "";
-            const { tr } = state;
-            const start = $from.start();
-            const end = $from.end();
-            if (end > start) tr.delete(start, end);
-            tr.setBlockType(
-              tr.mapping.map(start),
-              tr.mapping.map(start),
-              state.schema.nodes.codeBlock,
+
+            // Verify the parent context accepts code blocks
+            if (!parent.canReplaceWith(myIndex, myIndex + 1, codeBlockType)) {
+              return false;
+            }
+
+            // Replace the entire paragraph node with an empty code block
+            const codeBlockNode = codeBlockType.create(
               { language: language || null },
             );
-            view.dispatch(tr);
+            view.dispatch(
+              state.tr.replaceWith(
+                $from.before($from.depth),
+                $from.after($from.depth),
+                codeBlockNode,
+              ),
+            );
             return true;
           },
         },
