@@ -71,7 +71,6 @@ const CodeFenceShortcut = Extension.create({
             const match = text.match(codeFenceRe);
             if (!match) return false;
 
-            const codeBlockType = state.schema.nodes.codeBlock;
             const parent = $from.node(-1);
             const myIndex = $from.index(-1);
 
