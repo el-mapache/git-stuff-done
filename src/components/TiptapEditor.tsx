@@ -11,7 +11,7 @@ import TaskItem from "@tiptap/extension-task-item";
 import { Markdown } from "tiptap-markdown";
 import Mention from "@tiptap/extension-mention";
 import { ReactRenderer } from "@tiptap/react";
-import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import { useEffect, useImperativeHandle, forwardRef, useRef, type MutableRefObject } from 'react';
 import { CustomImage, imageDeleteRef, imageErrorRef, PLACEHOLDER_PREFIX } from '@/lib/customImage';
 import MentionList, {
@@ -32,6 +32,38 @@ const TrailingSpaceAfterPaste = Extension.create({
               ext.editor.chain().focus().insertContent(" ").run();
             }, 0);
             return false;
+          },
+        },
+      }),
+    ];
+  },
+});
+
+// When Space is pressed while the cursor is inside a link mark, insert the
+// space without the link mark so subsequent typing stays outside the link.
+const EscapeLinkOnSpace = Extension.create({
+  name: "escapeLinkOnSpace",
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: new PluginKey("escapeLinkOnSpace"),
+        props: {
+          handleKeyDown(view, event) {
+            if (event.key !== " ") return false;
+            const { state } = view;
+            const { selection } = state;
+            if (!(selection instanceof TextSelection)) return false;
+            const $cursor = selection.$cursor;
+            if (!$cursor) return false;
+            const linkMark = state.schema.marks.link;
+            if (!linkMark || !linkMark.isInSet($cursor.marks())) return false;
+            // Insert space with the link mark stripped out
+            const marksWithoutLink = $cursor.marks().filter(m => m.type !== linkMark);
+            const spaceNode = marksWithoutLink.length
+              ? state.schema.text(" ", marksWithoutLink)
+              : state.schema.text(" ");
+            view.dispatch(state.tr.replaceSelectionWith(spaceNode, false));
+            return true;
           },
         },
       }),
@@ -472,6 +504,7 @@ const TiptapEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(
           transformCopiedText: true,
         }),
         TrailingSpaceAfterPaste,
+        EscapeLinkOnSpace,
         CodeFenceShortcut,
       ],
       content,
