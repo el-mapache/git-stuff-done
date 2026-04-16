@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, FileText, Link2 } from 'lucide-react';
 import TiptapEditor, { type TiptapEditorHandle } from './TiptapEditor';
 import { DEMO_LOG_CONTENT, DEMO_RICH_LOG_CONTENT } from '@/lib/demo';
+import SlackThreadModal from './SlackThreadModal';
 import { PLACEHOLDER_PREFIX } from '@/lib/customImage';
 
 type SaveStatus = 'idle' | 'unsaved' | 'saving' | 'saved';
@@ -30,6 +31,7 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
   const [content, setContent] = useState('');
   const [status, setStatus] = useState<SaveStatus>('idle');
   const [linkifying, setLinkifying] = useState(false);
+  const [slackModalUrl, setSlackModalUrl] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -186,10 +188,17 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
         ref={editorRef}
         content={content}
         onUpdate={handleEditorUpdate}
+        onSlackLinkClick={setSlackModalUrl}
         placeholder="Start typing your work log..."
         onImageUpload={handleImageUpload}
         onDeleteImage={handleDeleteImage}
         onUploadError={handleUploadError}
+      />
+      <SlackThreadModal
+        isOpen={slackModalUrl !== null}
+        onClose={() => setSlackModalUrl(null)}
+        url={slackModalUrl ?? ''}
+        onInsert={(text) => editorRef.current?.insertAtCursor(text)}
       />
       {uploadError && (
         <div className="shrink-0 border-t border-destructive/20 px-4 py-2.5 bg-destructive/10 text-destructive text-sm flex items-center gap-2">
