@@ -163,7 +163,7 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <span className="text-base font-semibold text-primary flex items-center gap-2">
+        <span className="text-base font-semibold text-foreground flex items-center gap-2">
           <FileText className="h-4 w-4" aria-hidden="true" />
           {currentDate}
         </span>

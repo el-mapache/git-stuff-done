@@ -181,7 +181,7 @@ export default function TodoList({ date, isDemo = false }: { date?: string, isDe
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <h2 className="text-base font-semibold text-primary flex items-center gap-2">
+        <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
           <ClipboardList className="h-4 w-4" aria-hidden="true" />
           TODOs
         </h2>
