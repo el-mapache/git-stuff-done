@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Bot, GitPullRequest, CheckCircle } from 'lucide-react';
 import { useVisibilityPolling } from '@/hooks/useVisibilityPolling';
 import type { AgentSession } from '@/app/api/sessions/route';
+import { DEMO_SESSIONS } from '@/lib/demo';
 
 // Module-level cache to survive remounts (e.g. layout switches)
 let _sessionCache: AgentSession[] | null = null;
@@ -59,6 +60,7 @@ export default function AgentSessions({
   const refresh = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true);
     if (isDemo) {
+      setSessions(DEMO_SESSIONS);
       setLoading(false);
       return;
     }
@@ -92,8 +94,8 @@ export default function AgentSessions({
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <h2 className="text-base font-semibold text-primary flex items-center gap-2">
-          <Bot className="h-4 w-4" aria-hidden="true" />
+        <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+          <Bot className="h-5 w-5 text-indigo-500 dark:text-indigo-400" aria-hidden="true" />
           <a
             href="https://github.com/copilot/agents"
             target="_blank"
@@ -135,7 +137,7 @@ export default function AgentSessions({
         {!loading && sessions.length === 0 && (
           <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
             <CheckCircle className="h-4 w-4" aria-hidden="true" />
-            {isDemo ? 'Agent Sessions not available in demo mode' : 'No sessions found'}
+            {isDemo ? 'No sessions found' : 'No sessions found'}
           </div>
         )}
 
@@ -203,7 +205,7 @@ export default function AgentSessions({
                               onClick={(e) => e.stopPropagation()}
                               className={`rounded-full px-1.5 py-0.5 text-xs font-medium ring-1 ring-inset tabular-nums ${
                                 session.pullRequestState === 'MERGED'
-                                  ? 'bg-purple-50 text-purple-700 ring-purple-600/20 dark:bg-purple-500/10 dark:text-purple-400 dark:ring-purple-500/20'
+                                  ? 'bg-teal-50 text-teal-700 ring-teal-600/20 dark:bg-teal-500/10 dark:text-teal-400 dark:ring-teal-500/20'
                                   : session.pullRequestState === 'CLOSED'
                                   ? 'bg-zinc-50 text-zinc-600 ring-zinc-500/20 dark:bg-zinc-500/10 dark:text-zinc-400 dark:ring-zinc-500/20'
                                   : 'bg-muted text-muted-foreground ring-border'
