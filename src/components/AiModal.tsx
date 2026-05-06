@@ -1,35 +1,31 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { X, AlertTriangle, Search, Square, CheckCircle2 } from 'lucide-react';
+import { X, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useModels } from '@/hooks/useModels';
 import MarkdownViewer from '@/components/MarkdownViewer';
-import { DEMO_SEARCH_QUERY, DEMO_SEARCH_RESULT, DEMO_SUMMARY_RESULT } from '@/lib/demo';
+import { DEMO_SUMMARY_RESULT } from '@/lib/demo';
 
-const DEFAULT_PROMPTS = [
-  { label: 'Daily Standup', value: 'Summarize my work for a daily standup meeting. Focus on what was completed, what is in progress, and any blockers.' },
-  { label: 'Weekly Report', value: 'Create a weekly report summarizing key achievements, PRs merged, and tasks completed. Group by project or topic.' },
-  { label: 'Detailed Changelog', value: 'List all technical changes, bug fixes, and refactors in a changelog format.' },
-  { label: 'AI Usage', value: 'Summarize how I used AI tools this past week. Include mentions of Copilot, AI-generated code, AI-assisted debugging, pair programming with AI, and any AI-related workflow patterns. Note which tasks AI helped with and how.' },
-  { label: 'Custom', value: '' },
-];
+interface SummaryPrompt {
+  id: string;
+  label: string;
+  value: string;
+  is_builtin: boolean;
+}
 
 interface AiModalProps {
   isOpen: boolean;
   onClose: () => void;
-  defaultTab: 'search' | 'summarize';
   defaultDate: string;
   isDemo?: boolean;
 }
 
-export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDemo = false }: AiModalProps) {
+export default function AiModal({ isOpen, onClose, defaultDate, isDemo = false }: AiModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
   // Dynamic model loading
   const { models, loading: modelsLoading } = useModels(isOpen);
 
-  // Shared state
-  const [activeTab, setActiveTab] = useState<'search' | 'summarize'>(defaultTab);
   const [selectedModel, setSelectedModel] = useState('');
 
   // Set default model once models load
@@ -38,105 +34,6 @@ export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDe
       setSelectedModel(models[0].id);
     }
   }, [models, selectedModel]);
-
-  // Search pane state
-  const demoInitRef = useRef(false);
-  const demoSummarizeInitRef = useRef(false);
-  const abortRef = useRef<AbortController | null>(null);
-  const [query, setQuery] = useState('');
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchResult, setSearchResult] = useState<string | null>(null);
-  const [searchError, setSearchError] = useState<string | null>(null);
-  const [daysSearched, setDaysSearched] = useState(0);
-  const [exhausted, setExhausted] = useState(false);
-  const [canContinue, setCanContinue] = useState(false);
-  const [searchMode, setSearchMode] = useState<string | null>(null);
-  const [progressMessage, setProgressMessage] = useState<string | null>(null);
-  const [savingSearch, setSavingSearch] = useState(false);
-  const [searchSaveMessage, setSearchSaveMessage] = useState<string | null>(null);
-
-  // Summarize pane state
-  const [startDate, setStartDate] = useState(defaultDate);
-  const [endDate, setEndDate] = useState(defaultDate);
-  const [selectedPromptIdx, setSelectedPromptIdx] = useState(0);
-  const [customPrompt, setCustomPrompt] = useState(DEFAULT_PROMPTS[0].value);
-  const [summaryLoading, setSummaryLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const [summaryResult, setSummaryResult] = useState<string | null>(null);
-  const [summaryError, setSummaryError] = useState<string | null>(null);
-
-  // --- Close / reset ---
-
-  const handleClose = useCallback(() => {
-    abortRef.current?.abort();
-    // Reset search state
-    setQuery('');
-    setSearchResult(null);
-    setSearchError(null);
-    setDaysSearched(0);
-    setExhausted(false);
-    setCanContinue(false);
-    setSearchMode(null);
-    setProgressMessage(null);
-    setSearchLoading(false);
-    setSavingSearch(false);
-    setSearchSaveMessage(null);
-    // Reset summarize state
-    setStartDate(defaultDate);
-    setEndDate(defaultDate);
-    setCustomPrompt(DEFAULT_PROMPTS[0].value);
-    setSelectedPromptIdx(0);
-    setSummaryResult(null);
-    setSummaryError(null);
-    setSummaryLoading(false);
-    setSaving(false);
-    setSaveMessage(null);
-    onClose();
-  }, [defaultDate, onClose]);
-
-  // Sync activeTab when modal opens with a new defaultTab
-  useEffect(() => {
-    if (isOpen) setActiveTab(defaultTab);
-  }, [isOpen, defaultTab]);
-
-  // Escape handler
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') handleClose();
-    };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [isOpen, handleClose]);
-
-  // Search demo init
-  useEffect(() => {
-    if (isOpen && isDemo && !demoInitRef.current) {
-      demoInitRef.current = true;
-      setQuery(DEMO_SEARCH_QUERY);
-      setSearchResult(DEMO_SEARCH_RESULT);
-      setDaysSearched(7);
-    }
-    if (!isOpen) {
-      demoInitRef.current = false;
-    }
-  }, [isOpen, isDemo]);
-
-  // Summarize demo init
-  useEffect(() => {
-    if (isOpen && isDemo && !demoSummarizeInitRef.current) {
-      demoSummarizeInitRef.current = true;
-      setSummaryResult(DEMO_SUMMARY_RESULT);
-    }
-    if (!isOpen) {
-      demoSummarizeInitRef.current = false;
-    }
-  }, [isOpen, isDemo]);
-
-  if (!isOpen) return null;
-
-  // --- Search logic ---
 
   function todayISO() {
     return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
@@ -148,155 +45,247 @@ export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDe
     return d.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
   }
 
-  const handleSearch = async (offsetDays = 0) => {
-    if (!query.trim()) return;
+  // Summarize pane state
+  const [startDate, setStartDate] = useState(defaultDate);
+  const [endDate, setEndDate] = useState(defaultDate);
+  const [prompts, setPrompts] = useState<SummaryPrompt[]>([]);
+  const [promptsLoading, setPromptsLoading] = useState(false);
+  const [selectedPromptId, setSelectedPromptId] = useState('daily-standup');
+  const [customPrompt, setCustomPrompt] = useState('');
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [summaryResult, setSummaryResult] = useState<string | null>(null);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [savingPrompt, setSavingPrompt] = useState(false);
+  const [newPromptLabel, setNewPromptLabel] = useState('');
+  const [promptSaveError, setPromptSaveError] = useState<string | null>(null);
 
-    setSearchLoading(true);
-    setSearchError(null);
-    setCanContinue(false);
-    setProgressMessage(null);
-    if (offsetDays === 0) {
-      setSearchResult(null);
-      setDaysSearched(0);
-      setExhausted(false);
-      setSearchMode(null);
-    }
+  const selectedPrompt = prompts.find((prompt) => prompt.id === selectedPromptId);
+  const dailyStandupValue = prompts.find((prompt) => prompt.id === 'daily-standup')?.value ?? '';
 
-    if (isDemo) {
-      setTimeout(() => {
-        setSearchResult(DEMO_SEARCH_RESULT);
-        setDaysSearched(7);
-        setSearchLoading(false);
-      }, 1500);
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'summarize' | 'prompts'>('summarize');
+
+  // Prompts-tab editing state
+  const [editingPrompts, setEditingPrompts] = useState<Record<string, { label: string; value: string }>>({});
+  const [promptErrors, setPromptErrors] = useState<Record<string, string>>({});
+  const [addingNew, setAddingNew] = useState(false);
+  const [newLabel, setNewLabel] = useState('');
+  const [newValue, setNewValue] = useState('');
+  const [newError, setNewError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setPromptsLoading(true);
+    fetch('/api/summary-prompts')
+      .then((r) => r.json())
+      .then((data) => setPrompts(data.prompts ?? []))
+      .catch(() => {})
+      .finally(() => setPromptsLoading(false));
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || customPrompt || !selectedPrompt) return;
+    setCustomPrompt(selectedPrompt.value);
+  }, [customPrompt, isOpen, selectedPrompt]);
+
+  const handlePromptSelect = useCallback((prompt: SummaryPrompt) => {
+    setSelectedPromptId(prompt.id);
+    setCustomPrompt(prompt.value);
+
+    if (prompt.id === 'daily-standup') {
+      const today = todayISO();
+      setStartDate(today);
+      setEndDate(today);
       return;
     }
 
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
+    if (prompt.id === 'weekly-report' || prompt.id === 'ai-usage') {
+      setStartDate(daysAgoISO(7));
+      setEndDate(todayISO());
+    }
+  }, []);
+
+  const handleSavePrompt = async () => {
+    const label = newPromptLabel.trim();
+    if (!label) return;
+
+    setPromptSaveError(null);
 
     try {
-      const res = await fetch('/api/search', {
+      const res = await fetch('/api/summary-prompts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: query.trim(),
-          model: selectedModel,
-          todayDate: todayISO(),
-          offsetDays,
-        }),
-        signal: controller.signal,
+        body: JSON.stringify({ label, value: customPrompt }),
       });
 
-      if (!res.ok) throw new Error('Search failed');
-
-      const reader = res.body!.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop()!;
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed) continue;
-          try {
-            const event = JSON.parse(trimmed);
-            if (event.type === 'progress') {
-              setProgressMessage(event.message);
-              if (event.daysSearched != null) setDaysSearched(event.daysSearched);
-              if (event.searchMode) setSearchMode(event.searchMode);
-            } else if (event.type === 'complete') {
-              setDaysSearched(event.daysSearched);
-              setExhausted(event.exhausted);
-              setSearchMode(event.searchMode ?? null);
-              if (event.answer) {
-                setSearchResult(event.answer);
-                setCanContinue(false);
-              } else {
-                setCanContinue(event.searchMode === 'recent_first' && !event.exhausted);
-                setSearchResult(null);
-              }
-            } else if (event.type === 'error') {
-              setSearchError(event.error);
-            }
-          } catch {
-            // skip malformed lines
-          }
-        }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setPromptSaveError(data.error ?? 'Failed to save');
+        return;
       }
-    } catch (err) {
-      if ((err as Error).name !== 'AbortError') {
-        setSearchError('An error occurred while searching. Please try again.');
-      }
-    } finally {
-      setSearchLoading(false);
-      setProgressMessage(null);
-    }
-  };
-
-  const handleStop = () => {
-    abortRef.current?.abort();
-    abortRef.current = null;
-    setSearchLoading(false);
-    setProgressMessage(null);
-    setSearchResult(null);
-    setSearchError(null);
-    setDaysSearched(0);
-    setCanContinue(false);
-    setSearchMode(null);
-  };
-
-  const saveSearchToRepo = async () => {
-    if (!searchResult) return;
-    if (isDemo) {
-      setSearchSaveMessage(`summaries/${todayISO()}-search-result.md`);
-      return;
-    }
-    setSavingSearch(true);
-    setSearchError(null);
-
-    try {
-      const slug = query.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
-      const filename = `${todayISO()}-search-${slug || 'result'}.md`;
-      const content = `# Search: ${query.trim()}\n\n${searchResult}`;
-
-      const res = await fetch('/api/summary/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename, content }),
-      });
-
-      if (!res.ok) throw new Error('Failed to save');
 
       const data = await res.json();
-      const msg = data.committed ? 'Saved and committed!' : 'Saved to disk.';
-      setSearchSaveMessage(`${msg} summaries/${filename}`);
+      setPrompts((prev) => [...prev, data.prompt]);
+      setSelectedPromptId(data.prompt.id);
+      setSavingPrompt(false);
+      setNewPromptLabel('');
     } catch {
-      setSearchError('Failed to save search result to repository.');
-    } finally {
-      setSavingSearch(false);
+      setPromptSaveError('Failed to save template');
     }
   };
 
-  const downloadSearchMarkdown = () => {
-    if (!searchResult) return;
-    const content = `# Search: ${query.trim()}\n\n${searchResult}`;
-    const blob = new Blob([content], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `search-result-${todayISO()}.md`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const handleDeletePrompt = async (id: string) => {
+    try {
+      const res = await fetch(`/api/summary-prompts?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+      if (!res.ok) return;
+
+      setPrompts((prev) => prev.filter((prompt) => prompt.id !== id));
+      if (selectedPromptId === id) {
+        setSelectedPromptId('daily-standup');
+        setCustomPrompt(dailyStandupValue);
+      }
+    } catch {
+      // Silent on purpose.
+    }
   };
+
+  // --- Prompts tab handlers ---
+
+  const handleEditChange = (id: string, field: 'label' | 'value', val: string) => {
+    setEditingPrompts((prev) => ({ ...prev, [id]: { ...prev[id], label: prev[id]?.label ?? '', value: prev[id]?.value ?? '', [field]: val } }));
+    setPromptErrors((prev) => { const n = { ...prev }; delete n[id]; return n; });
+  };
+
+  const getEditing = (prompt: SummaryPrompt) =>
+    editingPrompts[prompt.id] ?? { label: prompt.label, value: prompt.value };
+
+  const isDirty = (prompt: SummaryPrompt) => {
+    const e = editingPrompts[prompt.id];
+    return e !== undefined && (e.label !== prompt.label || e.value !== prompt.value);
+  };
+
+  const handleSaveEdit = async (prompt: SummaryPrompt) => {
+    const e = editingPrompts[prompt.id];
+    if (!e) return;
+    const label = e.label.trim();
+    const value = e.value.trim();
+    if (!label || !value) {
+      setPromptErrors((prev) => ({ ...prev, [prompt.id]: 'Label and value are required' }));
+      return;
+    }
+    try {
+      const res = await fetch('/api/summary-prompts', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: prompt.id, label, value }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setPromptErrors((prev) => ({ ...prev, [prompt.id]: data.error ?? 'Failed to save' }));
+        return;
+      }
+      const data = await res.json();
+      setPrompts((prev) => prev.map((p) => p.id === prompt.id ? data.prompt : p));
+      setEditingPrompts((prev) => { const n = { ...prev }; delete n[prompt.id]; return n; });
+    } catch {
+      setPromptErrors((prev) => ({ ...prev, [prompt.id]: 'Failed to save' }));
+    }
+  };
+
+  const handleResetBuiltin = async (prompt: SummaryPrompt) => {
+    try {
+      const res = await fetch(`/api/summary-prompts?id=${encodeURIComponent(prompt.id)}`, { method: 'PATCH' });
+      if (!res.ok) return;
+      const data = await res.json();
+      setPrompts((prev) => prev.map((p) => p.id === prompt.id ? data.prompt : p));
+      setEditingPrompts((prev) => { const n = { ...prev }; delete n[prompt.id]; return n; });
+    } catch { /* silent */ }
+  };
+
+  const isBuiltinOverridden = (prompt: SummaryPrompt) => {
+    if (!prompt.is_builtin) return false;
+    const e = editingPrompts[prompt.id];
+    // Check if the stored prompt differs from BUILTIN defaults — we rely on the API to tell us
+    // by checking if the label/value differ from what the original constants were.
+    // Since we don't have the originals client-side, we use a flag: if the user has edited it via PUT,
+    // the API returns the overridden values. We track "isOverride" by seeing if GET value differs
+    // from the hardcoded defaults below.
+    if (e) return true;
+    return false;
+  };
+
+  const handleAddNew = async () => {
+    const label = newLabel.trim();
+    const value = newValue.trim();
+    if (!label || !value) { setNewError('Both label and value are required'); return; }
+    setNewError(null);
+    try {
+      const res = await fetch('/api/summary-prompts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label, value }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setNewError(data.error ?? 'Failed to add');
+        return;
+      }
+      const data = await res.json();
+      setPrompts((prev) => [...prev, data.prompt]);
+      setAddingNew(false);
+      setNewLabel('');
+      setNewValue('');
+    } catch {
+      setNewError('Failed to add prompt');
+    }
+  };
+
+  // --- Close / reset ---
+
+  const handleClose = useCallback(() => {
+    setStartDate(defaultDate);
+    setEndDate(defaultDate);
+    setSelectedPromptId('daily-standup');
+    setCustomPrompt(dailyStandupValue);
+    setSummaryResult(null);
+    setSummaryError(null);
+    setSummaryLoading(false);
+    setSaving(false);
+    setSaveMessage(null);
+    setSavingPrompt(false);
+    setNewPromptLabel('');
+    setPromptSaveError(null);
+    setActiveTab('summarize');
+    setEditingPrompts({});
+    setPromptErrors({});
+    setAddingNew(false);
+    setNewLabel('');
+    setNewValue('');
+    setNewError(null);
+    onClose();
+  }, [dailyStandupValue, defaultDate, onClose]);
+
+  // Escape handler
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose();
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [isOpen, handleClose]);
+
+  // Summarize demo init
+  useEffect(() => {
+    if (isOpen && isDemo) {
+      setSummaryResult(DEMO_SUMMARY_RESULT);
+    }
+  }, [isOpen, isDemo]);
+
+  if (!isOpen) return null;
 
   // --- Summarize logic ---
 
@@ -338,20 +327,19 @@ export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDe
 
   const saveToRepo = async () => {
     if (!summaryResult) return;
+
+    const matchedPrompt = prompts.find((prompt) => prompt.value === customPrompt);
+    const slug = matchedPrompt ? matchedPrompt.label.toLowerCase().replace(/\s+/g, '-') : 'custom-summary';
+
     if (isDemo) {
-      const slug = DEFAULT_PROMPTS.find(p => p.value === customPrompt)?.label.toLowerCase().replace(/\s+/g, '-') ?? 'custom-summary';
       setSaveMessage(`summaries/${endDate}-${slug}.md`);
       return;
     }
+
     setSaving(true);
     setSummaryError(null);
 
     try {
-      const matchedPrompt = DEFAULT_PROMPTS.find(p => p.value === customPrompt);
-      const slug = matchedPrompt && matchedPrompt.label !== 'Custom'
-        ? matchedPrompt.label.toLowerCase().replace(/\s+/g, '-')
-        : 'custom-summary';
-
       const filename = `${endDate}-${slug}.md`;
 
       const res = await fetch('/api/summary/save', {
@@ -385,138 +373,62 @@ export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDe
     URL.revokeObjectURL(url);
   };
 
-  const showLongSearchWarning = daysSearched > 60;
+  const exportRawLogs = async () => {
+    setExportLoading(true);
+    try {
+      const res = await fetch(`/api/combine-logs?start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}`);
+      if (!res.ok) throw new Error('Failed to export logs');
+      const data = await res.json();
+      const blob = new Blob([data.content], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '').replace('T', 'T');
+      a.download = `work-logs-${startDate}-to-${endDate}-${timestamp}.md`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      // silently fail — no error state needed for a simple download
+    } finally {
+      setExportLoading(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onMouseDown={(e) => { if (panelRef.current && !panelRef.current.contains(e.target as Node)) handleClose(); }}>
       <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="ai-modal-title" className="w-full max-w-2xl rounded-2xl bg-popover shadow-xl ring-1 ring-border max-h-[90vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="border-b border-border px-6 pt-4 pb-0 bg-popover sticky top-0 z-10">
-          <div className="flex items-center justify-between pb-3">
-            <h2 id="ai-modal-title" className="text-lg font-semibold text-popover-foreground">AI Assistant</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 id="ai-modal-title" className="text-lg font-semibold text-popover-foreground">AI Summary</h2>
             <button onClick={handleClose} aria-label="Close" className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-muted"><X className="h-4 w-4" aria-hidden="true" /></button>
           </div>
-          {/* Tab bar */}
-          <div className="flex gap-6">
-            <button
-              onClick={() => setActiveTab('search')}
-              className={`pb-2 text-sm transition-colors ${activeTab === 'search' ? 'text-foreground border-b-2 border-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              Search
-            </button>
-            <button
-              onClick={() => setActiveTab('summarize')}
-              className={`pb-2 text-sm transition-colors ${activeTab === 'summarize' ? 'text-foreground border-b-2 border-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              Summarize
-            </button>
+          <div className="flex gap-1 -mb-px">
+            {(['summarize', 'prompts'] as const).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={[
+                  'px-4 py-2 text-sm font-medium border-b-2 transition-colors capitalize',
+                  activeTab === tab
+                    ? 'border-primary text-foreground'
+                    : 'border-transparent text-muted-foreground hover:text-foreground',
+                ].join(' ')}
+              >
+                {tab === 'summarize' ? 'Summarize' : 'Prompts'}
+              </button>
+            ))}
           </div>
         </div>
 
         {/* Body */}
+        {activeTab === 'summarize' ? (
+          <>
         <div className="flex-1 overflow-y-auto px-6 py-4">
-          {/* ===== Search Pane ===== */}
-          <div className={activeTab === 'search' ? '' : 'hidden'}>
-            <div className="space-y-4">
-              {/* Query input */}
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Question</label>
-                <textarea
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey && !searchLoading) {
-                      e.preventDefault();
-                      handleSearch(0);
-                    }
-                  }}
-                  className="w-full h-20 rounded-xl border border-input bg-muted/50 px-3 py-2 text-sm text-foreground placeholder-muted-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/20 resize-none transition-all"
-                  placeholder='Ask a question about your work logs... (e.g. "What did I work on last week?")'
-                  disabled={searchLoading}
-                />
-              </div>
-
-              {/* Model selector */}
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">AI Model</label>
-                <select
-                  value={selectedModel}
-                  onChange={(e) => setSelectedModel(e.target.value)}
-                  disabled={searchLoading || modelsLoading}
-                  className="w-full rounded-xl border border-input bg-muted/50 px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/20 transition-all cursor-pointer"
-                >
-                  {models.map((m) => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Loading / Progress */}
-              {searchLoading && (
-                <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/50 border border-border">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                  <span className="text-sm text-muted-foreground">
-                    {progressMessage ?? 'Starting search...'}
-                  </span>
-                </div>
-              )}
-
-              {/* Long search warning */}
-              {showLongSearchWarning && !exhausted && (
-                <div className="text-sm text-warning-foreground bg-warning/10 p-3 rounded-xl border border-warning/20 flex items-center gap-2">
-                  <span>⏳</span> Searching far back in history — this may take a while.
-                </div>
-              )}
-
-              {/* Continue searching prompt */}
-              {canContinue && !searchLoading && (
-                <div className="p-4 rounded-xl bg-muted/50 border border-border space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    Searched the last {daysSearched} days but couldn&apos;t find a clear answer. Want to keep looking further back?
-                  </p>
-                  <button
-                    onClick={() => handleSearch(daysSearched)}
-                    className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-accent-foreground transition hover:opacity-80"
-                  >
-                    Keep Searching
-                  </button>
-                </div>
-              )}
-
-              {/* Result */}
-              {searchResult && (
-                <div className="mt-2 pt-4 border-t border-border">
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-xs font-medium text-muted-foreground uppercase tracking-wider">Answer</label>
-                    <span className="text-[10px] text-muted-foreground">
-                      Searched {daysSearched} days
-                    </span>
-                  </div>
-                  <MarkdownViewer
-                    content={searchResult}
-                    className="rounded-xl border border-input bg-muted px-4 py-3 text-foreground"
-                  />
-                </div>
-              )}
-
-              {/* Error */}
-              {searchError && (
-                <div className="text-sm text-destructive bg-destructive/10 p-4 rounded-xl border border-destructive/20 flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" /> {searchError}
-                </div>
-              )}
-
-              {/* Save success */}
-              {searchSaveMessage && (
-                <div className="text-sm text-success bg-success/10 p-4 rounded-xl border border-success/20 flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" /> {searchSaveMessage}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* ===== Summarize Pane ===== */}
-          <div className={activeTab === 'summarize' ? '' : 'hidden'}>
+          <div>
             <div className="space-y-6">
               {/* Date Range */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -544,30 +456,33 @@ export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDe
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="ai-summary-prompt-template" className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Prompt Template</label>
-                  <select
-                    id="ai-summary-prompt-template"
-                    value={selectedPromptIdx}
-                    onChange={(e) => {
-                      const idx = Number(e.target.value);
-                      setSelectedPromptIdx(idx);
-                      setCustomPrompt(DEFAULT_PROMPTS[idx].value);
-                      const label = DEFAULT_PROMPTS[idx].label;
-                      if (label === 'Daily Standup') {
-                        const today = todayISO();
-                        setStartDate(today);
-                        setEndDate(today);
-                      } else if (label === 'Weekly Report' || label === 'AI Usage') {
-                        setStartDate(daysAgoISO(7));
-                        setEndDate(todayISO());
-                      }
-                    }}
-                    className="w-full rounded-xl border border-input bg-muted/50 px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/20 transition-all cursor-pointer"
-                  >
-                    {DEFAULT_PROMPTS.map((p, idx) => (
-                      <option key={idx} value={idx}>{p.label}</option>
-                    ))}
-                  </select>
+                  <label htmlFor="ai-summary-template" className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">Template</label>
+                  <div className="flex items-center gap-2">
+                    <select
+                      id="ai-summary-template"
+                      value={selectedPromptId}
+                      onChange={(e) => {
+                        const p = prompts.find((pr) => pr.id === e.target.value);
+                        if (p) handlePromptSelect(p);
+                      }}
+                      disabled={promptsLoading && prompts.length === 0}
+                      className="flex-1 rounded-xl border border-input bg-muted/50 px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/20 transition-all cursor-pointer"
+                    >
+                      {prompts.map((p) => (
+                        <option key={p.id} value={p.id}>{p.label}</option>
+                      ))}
+                    </select>
+                    {selectedPrompt && !selectedPrompt.is_builtin && (
+                      <button
+                        type="button"
+                        onClick={() => void handleDeletePrompt(selectedPrompt.id)}
+                        className="rounded-lg px-2 py-1.5 text-xs text-destructive hover:bg-destructive/10 transition-colors"
+                        aria-label={`Delete ${selectedPrompt.label}`}
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label htmlFor="ai-summary-model" className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">AI Model</label>
@@ -595,6 +510,41 @@ export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDe
                   className="w-full h-32 rounded-xl border border-input bg-muted/50 px-3 py-2 text-sm text-foreground placeholder-muted-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/20 resize-none transition-all"
                   placeholder="Enter custom instructions for the summary..."
                 />
+                <div className="flex items-center gap-2 mt-1">
+                  {customPrompt !== (selectedPrompt?.value ?? '') && (
+                    savingPrompt ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={newPromptLabel}
+                          onChange={(e) => setNewPromptLabel(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') void handleSavePrompt();
+                            if (e.key === 'Escape') setSavingPrompt(false);
+                          }}
+                          placeholder="Template name…"
+                          className="rounded-lg border border-input bg-muted/50 px-2 py-1 text-xs text-foreground outline-none focus:border-primary"
+                          autoFocus
+                        />
+                        <button onClick={() => void handleSavePrompt()} className="text-xs text-primary hover:underline">Save</button>
+                        <button onClick={() => setSavingPrompt(false)} className="text-xs text-muted-foreground hover:underline">Cancel</button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewPromptLabel('');
+                          setPromptSaveError(null);
+                          setSavingPrompt(true);
+                        }}
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        + Save as template
+                      </button>
+                    )
+                  )}
+                  {promptSaveError && <span className="text-xs text-destructive">{promptSaveError}</span>}
+                </div>
               </div>
 
               {/* Loading */}
@@ -633,90 +583,150 @@ export default function AiModal({ isOpen, onClose, defaultTab, defaultDate, isDe
           </div>
         </div>
 
-        {/* Footer — adapts based on active tab */}
-        <div className="border-t border-border px-6 py-4 flex justify-between items-center bg-popover sticky bottom-0 z-10">
-          {activeTab === 'search' ? (
-            <>
-              <div className="flex gap-2">
-                {searchResult && (
-                  <>
-                    <button
-                      onClick={() => navigator.clipboard.writeText(searchResult)}
-                      className="rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:shadow-sm border border-transparent hover:border-border transition-all"
-                    >
-                      Copy
-                    </button>
-                    <button
-                      onClick={downloadSearchMarkdown}
-                      className="rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:shadow-sm border border-transparent hover:border-border transition-all"
-                    >
-                      Download .md
-                    </button>
-                    <button
-                      onClick={saveSearchToRepo}
-                      disabled={savingSearch}
-                      className="rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:shadow-sm border border-transparent hover:border-border transition-all disabled:opacity-50"
-                    >
-                      {savingSearch ? 'Committing...' : 'Save & Commit'}
-                    </button>
-                  </>
-                )}
-              </div>
-              {searchLoading ? (
-                <button
-                  onClick={handleStop}
-                  className="rounded-xl bg-destructive px-6 py-2.5 text-sm font-semibold text-destructive-foreground shadow-sm transition-all hover:opacity-90"
-                >
-                  <Square className="h-3.5 w-3.5 inline-block mr-1.5 fill-current" aria-hidden="true" />
-                  Stop
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleSearch(0)}
-                  disabled={!query.trim()}
-                  className="rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Search className="h-3.5 w-3.5 inline-block mr-1.5" aria-hidden="true" />Search
-                </button>
-              )}
-            </>
-          ) : (
-            <>
-              <div className="flex gap-2">
-                {summaryResult && (
-                  <>
-                    <button
-                      onClick={() => navigator.clipboard.writeText(summaryResult)}
-                      className="rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:shadow-sm border border-transparent hover:border-border transition-all"
-                    >
-                      Copy
-                    </button>
-                    <button
-                      onClick={downloadMarkdown}
-                      className="rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:shadow-sm border border-transparent hover:border-border transition-all"
-                    >
-                      Download .md
-                    </button>
-                    <button
-                      onClick={saveToRepo}
-                      disabled={saving}
-                      className="rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:shadow-sm border border-transparent hover:border-border transition-all disabled:opacity-50"
-                    >
-                      {saving ? 'Committing...' : 'Save & Commit'}
-                    </button>
-                  </>
-                )}
-              </div>
+        <div className="border-t border-border px-6 py-3 flex flex-col gap-2 bg-popover sticky bottom-0 z-10">
+          {summaryResult && (
+            <div className="flex gap-2 flex-wrap border-b border-border pb-3">
               <button
-                onClick={generateSummary}
-                disabled={summaryLoading}
-                className="rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => navigator.clipboard.writeText(summaryResult)}
+                className="rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:shadow-sm border border-transparent hover:border-border transition-all"
               >
-                {summaryLoading ? 'Generating...' : 'Generate Summary'}
+                Copy
               </button>
-            </>
+              <button
+                onClick={downloadMarkdown}
+                className="rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:shadow-sm border border-transparent hover:border-border transition-all"
+              >
+                Download .md
+              </button>
+              <button
+                onClick={saveToRepo}
+                disabled={saving}
+                className="rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:shadow-sm border border-transparent hover:border-border transition-all disabled:opacity-50"
+              >
+                {saving ? 'Committing...' : 'Save & Commit'}
+              </button>
+            </div>
           )}
+          <div className="flex justify-between items-center">
+            <button
+              onClick={exportRawLogs}
+              disabled={exportLoading || isDemo}
+              title="Downloads all work log entries between the selected dates as a single markdown file."
+              className="rounded-xl border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {exportLoading ? 'Exporting...' : 'Export Raw Logs'}
+            </button>
+            <button
+              onClick={generateSummary}
+              disabled={summaryLoading}
+              className="rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {summaryLoading ? 'Generating...' : 'Generate Summary'}
+            </button>
+          </div>
         </div>
+          </>
+        ) : (
+          /* Prompts tab */
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+            {promptsLoading && prompts.length === 0 ? (
+              <div className="text-sm text-muted-foreground py-8 text-center">Loading prompts…</div>
+            ) : (
+              <>
+                {prompts.map((prompt) => {
+                  const editing = getEditing(prompt);
+                  const dirty = isDirty(prompt);
+                  const err = promptErrors[prompt.id];
+                  return (
+                    <div key={prompt.id} className="rounded-xl border border-border bg-card px-4 py-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={editing.label}
+                          onChange={(e) => handleEditChange(prompt.id, 'label', e.target.value)}
+                          className="flex-1 rounded-lg border border-input bg-muted/50 px-2 py-1 text-sm font-medium text-foreground outline-none focus:border-primary"
+                          placeholder="Template name"
+                        />
+                        {prompt.is_builtin && (
+                          <span className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground bg-muted rounded px-1.5 py-0.5">built-in</span>
+                        )}
+                      </div>
+                      <textarea
+                        value={editing.value}
+                        onChange={(e) => handleEditChange(prompt.id, 'value', e.target.value)}
+                        rows={3}
+                        className="w-full rounded-lg border border-input bg-muted/50 px-2 py-1.5 text-sm text-foreground outline-none focus:border-primary resize-none"
+                        placeholder="Prompt instructions…"
+                      />
+                      {err && <p className="text-xs text-destructive">{err}</p>}
+                      <div className="flex items-center gap-2 justify-end">
+                        {dirty && (
+                          <button
+                            type="button"
+                            onClick={() => void handleSaveEdit(prompt)}
+                            className="rounded-lg px-3 py-1 text-xs font-medium bg-primary text-primary-foreground transition-opacity hover:opacity-90"
+                          >
+                            Save
+                          </button>
+                        )}
+                        {prompt.is_builtin && isBuiltinOverridden(prompt) && (
+                          <button
+                            type="button"
+                            onClick={() => void handleResetBuiltin(prompt)}
+                            className="rounded-lg px-3 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            Reset to default
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => void handleDeletePrompt(prompt.id)}
+                          className="rounded-lg px-3 py-1 text-xs text-destructive hover:bg-destructive/10 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Add new prompt */}
+                {addingNew ? (
+                  <div className="rounded-xl border border-dashed border-border px-4 py-3 space-y-2">
+                    <input
+                      type="text"
+                      value={newLabel}
+                      onChange={(e) => setNewLabel(e.target.value)}
+                      placeholder="Template name"
+                      className="w-full rounded-lg border border-input bg-muted/50 px-2 py-1 text-sm font-medium text-foreground outline-none focus:border-primary"
+                      autoFocus
+                    />
+                    <textarea
+                      value={newValue}
+                      onChange={(e) => setNewValue(e.target.value)}
+                      rows={3}
+                      placeholder="Prompt instructions…"
+                      className="w-full rounded-lg border border-input bg-muted/50 px-2 py-1.5 text-sm text-foreground outline-none focus:border-primary resize-none"
+                    />
+                    {newError && <p className="text-xs text-destructive">{newError}</p>}
+                    <div className="flex gap-2 justify-end">
+                      <button type="button" onClick={() => { setAddingNew(false); setNewLabel(''); setNewValue(''); setNewError(null); }} className="rounded-lg px-3 py-1 text-xs text-muted-foreground hover:text-foreground">Cancel</button>
+                      <button type="button" onClick={() => void handleAddNew()} className="rounded-lg px-3 py-1 text-xs font-medium bg-primary text-primary-foreground hover:opacity-90">Add</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setAddingNew(true)}
+                    className="w-full rounded-xl border border-dashed border-border py-3 text-sm text-muted-foreground hover:text-foreground hover:border-border/80 transition-colors"
+                  >
+                    + Add prompt
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

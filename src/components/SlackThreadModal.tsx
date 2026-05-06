@@ -272,13 +272,13 @@ export default function SlackThreadModal({ isOpen, onClose, url, onInsert, isDem
     >
       <div
         ref={panelRef}
-        className="bg-card border border-border rounded-lg shadow-xl flex flex-col w-full max-w-2xl max-h-[80vh]"
+        className="bg-popover ring-1 ring-border rounded-2xl shadow-xl flex flex-col w-full max-w-2xl max-h-[90vh]"
         onMouseDown={(e) => e.stopPropagation()}
       >
         {view === 'thread' ? (
           <>
             {/* Thread header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
               <div className="flex items-center gap-2 min-w-0">
                 <SlackIcon />
                 <span className="text-sm font-medium truncate text-foreground">Slack Thread</span>
@@ -288,7 +288,7 @@ export default function SlackThreadModal({ isOpen, onClose, url, onInsert, isDem
             </div>
 
             {/* Thread body */}
-            <div className="flex-1 overflow-auto p-4">
+            <div className="flex-1 overflow-auto px-6 py-4">
               {loading && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -312,10 +312,10 @@ export default function SlackThreadModal({ isOpen, onClose, url, onInsert, isDem
 
             {/* Thread footer */}
             {markdown !== null && !loading && !error && (
-              <div className="flex justify-end gap-2 px-4 py-3 border-t border-border shrink-0">
+              <div className="flex justify-end gap-2 px-6 py-4 border-t border-border shrink-0">
                 <button
                   onClick={onClose}
-                  className="px-3 py-1.5 text-sm rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  className="px-3 py-1.5 text-sm rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                 >
                   Cancel
                 </button>
@@ -323,7 +323,7 @@ export default function SlackThreadModal({ isOpen, onClose, url, onInsert, isDem
                   onClick={() => setView('summary')}
                   title={isDemo ? 'AI features are disabled in demo mode' : 'Summarize with AI'}
                   disabled={isDemo}
-                  className="px-3 py-1.5 text-sm rounded border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+                  className="px-3 py-1.5 text-sm rounded-md border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
@@ -332,7 +332,7 @@ export default function SlackThreadModal({ isOpen, onClose, url, onInsert, isDem
                 </button>
                 <button
                   onClick={handleInsert}
-                  className="px-3 py-1.5 text-sm rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium"
+                  className="px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium"
                 >
                   Insert into log
                 </button>
@@ -342,11 +342,11 @@ export default function SlackThreadModal({ isOpen, onClose, url, onInsert, isDem
         ) : (
           <>
             {/* Summary header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => { setView('thread'); setSummaryStep('idle'); setSummary(null); setSummaryError(null); setShowFeedback(false); setFeedback(''); }}
-                  className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  className="rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                   aria-label="Back to thread"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -452,17 +452,17 @@ export default function SlackThreadModal({ isOpen, onClose, url, onInsert, isDem
 
             {/* Summary footer */}
             {summaryStep === 'idle' && (
-              <div className="flex justify-end gap-2 px-4 py-3 border-t border-border shrink-0">
+              <div className="flex justify-end gap-2 px-6 py-4 border-t border-border shrink-0">
                 <button
                   onClick={() => setView('thread')}
-                  className="px-3 py-1.5 text-sm rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  className="px-3 py-1.5 text-sm rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                 >
                   Back
                 </button>
                 <button
                   onClick={() => handleGenerate()}
                   disabled={!selectedModel || modelsLoading}
-                  className="px-3 py-1.5 text-sm rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Generate Summary
                 </button>
@@ -470,24 +470,24 @@ export default function SlackThreadModal({ isOpen, onClose, url, onInsert, isDem
             )}
 
             {summaryStep === 'done' && !showFeedback && (
-              <div className="flex justify-between items-center gap-2 px-4 py-3 border-t border-border shrink-0">
+              <div className="flex justify-between items-center gap-2 px-6 py-4 border-t border-border shrink-0">
                 <div className="flex gap-2">
                   <button
                     onClick={handleCopy}
-                    className="px-3 py-1.5 text-sm rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    className="px-3 py-1.5 text-sm rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                   >
                     Copy
                   </button>
                   <button
                     onClick={handleDownload}
-                    className="px-3 py-1.5 text-sm rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    className="px-3 py-1.5 text-sm rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                   >
                     Download .md
                   </button>
                   <button
                     onClick={handleSaveToRepo}
                     disabled={saving}
-                    className="px-3 py-1.5 text-sm rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                    className="px-3 py-1.5 text-sm rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
                   >
                     {saving ? 'Committing…' : 'Save & Commit'}
                   </button>
@@ -495,7 +495,7 @@ export default function SlackThreadModal({ isOpen, onClose, url, onInsert, isDem
                 <div className="flex gap-2">
                   <button
                     onClick={() => setShowFeedback(true)}
-                    className="px-3 py-1.5 text-sm rounded border border-border text-foreground hover:bg-muted transition-colors flex items-center gap-1.5"
+                    className="px-3 py-1.5 text-sm rounded-md border border-border text-foreground hover:bg-muted transition-colors flex items-center gap-1.5"
                   >
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M1 4v6h6M23 20v-6h-6"/>
@@ -505,7 +505,7 @@ export default function SlackThreadModal({ isOpen, onClose, url, onInsert, isDem
                   </button>
                   <button
                     onClick={() => { onInsert(summary!); onClose(); }}
-                    className="px-3 py-1.5 text-sm rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium"
+                    className="px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium"
                   >
                     Accept &amp; Insert
                   </button>
@@ -514,24 +514,24 @@ export default function SlackThreadModal({ isOpen, onClose, url, onInsert, isDem
             )}
 
             {summaryStep === 'done' && showFeedback && (
-              <div className="flex justify-between items-center gap-2 px-4 py-3 border-t border-border shrink-0">
+              <div className="flex justify-between items-center gap-2 px-6 py-4 border-t border-border shrink-0">
                 <div className="flex gap-2">
                   <button
                     onClick={handleCopy}
-                    className="px-3 py-1.5 text-sm rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    className="px-3 py-1.5 text-sm rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                   >
                     Copy
                   </button>
                   <button
                     onClick={handleDownload}
-                    className="px-3 py-1.5 text-sm rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    className="px-3 py-1.5 text-sm rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                   >
                     Download .md
                   </button>
                   <button
                     onClick={handleSaveToRepo}
                     disabled={saving}
-                    className="px-3 py-1.5 text-sm rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                    className="px-3 py-1.5 text-sm rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
                   >
                     {saving ? 'Committing…' : 'Save & Commit'}
                   </button>
@@ -539,20 +539,20 @@ export default function SlackThreadModal({ isOpen, onClose, url, onInsert, isDem
                 <div className="flex gap-2">
                   <button
                     onClick={() => { setShowFeedback(false); setFeedback(''); }}
-                    className="px-3 py-1.5 text-sm rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    className="px-3 py-1.5 text-sm rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleTryAgain}
                     disabled={!feedback.trim()}
-                    className="px-3 py-1.5 text-sm rounded border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-3 py-1.5 text-sm rounded-md border border-border text-foreground hover:bg-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Try Again
                   </button>
                   <button
                     onClick={() => { onInsert(summary!); onClose(); }}
-                    className="px-3 py-1.5 text-sm rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium"
+                    className="px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium"
                   >
                     Accept &amp; Insert
                   </button>
@@ -561,16 +561,16 @@ export default function SlackThreadModal({ isOpen, onClose, url, onInsert, isDem
             )}
 
             {summaryStep === 'error' && (
-              <div className="flex justify-end gap-2 px-4 py-3 border-t border-border shrink-0">
+              <div className="flex justify-end gap-2 px-6 py-4 border-t border-border shrink-0">
                 <button
                   onClick={() => { setView('thread'); setSummaryStep('idle'); setSummaryError(null); }}
-                  className="px-3 py-1.5 text-sm rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  className="px-3 py-1.5 text-sm rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                 >
                   Back
                 </button>
                 <button
                   onClick={() => handleGenerate()}
-                  className="px-3 py-1.5 text-sm rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium"
+                  className="px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium"
                 >
                   Retry
                 </button>
