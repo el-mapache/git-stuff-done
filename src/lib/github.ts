@@ -41,6 +41,28 @@ export async function getOctokit(): Promise<Octokit> {
   return cachedOctokit;
 }
 
+// Retry a Search API call once if it returns total_count: 0. GitHub Search has
+// known incidents where the lexical backend returns spurious zeros; a single
+// retry after a short delay materially improves reliability without making the
+// genuinely-empty case much slower.
+async function searchWithRetryOnZero<
+  T extends { data: { total_count: number; items: unknown[] } },
+>(label: string, fn: () => Promise<T>): Promise<T> {
+  const first = await fn();
+  if (first.data.total_count > 0) return first;
+  await new Promise((r) => setTimeout(r, 500));
+  const retry = await fn();
+  if (retry.data.total_count > 0) {
+    console.log(
+      `[github] ${label}: retry returned`,
+      retry.data.total_count,
+      "(first was 0)",
+    );
+    return retry;
+  }
+  return first;
+}
+
 // --- Issue / PR detail fetching ---
 
 export type GitHubLinkInfo = {
@@ -162,29 +184,43 @@ export type MyPullRequest = {
   mergeQueueState: "queued" | "merging" | null;
   authorLogin: string;
   isAssignee: boolean;
+  branchName: string;
 };
 
 export async function fetchMyPRs(): Promise<MyPullRequest[]> {
+  console.log("[github] fetchMyPRs: Starting fetch");
   const octokit = await getOctokit();
   const config = await readConfig();
   const { data: userData } = await octokit.users.getAuthenticated();
   const user = userData.login;
+  console.log("[github] fetchMyPRs: User =", user, "Org =", GITHUB_ORG);
 
-  // Fetch PRs authored by and assigned to the user (two queries, deduplicated)
-  const [authoredRes, assignedRes] = await Promise.all([
+  // Fetch PRs authored by and assigned to the user (two queries, deduplicated).
+  // Run sequentially: GitHub's Search API silently returns 0 results when hit
+  // with concurrent calls from the same token. Retry-on-zero compensates for
+  // GitHub Search incidents that yield spurious empty responses.
+  const authoredRes = await searchWithRetryOnZero("fetchMyPRs authored", () =>
     octokit.search.issuesAndPullRequests({
       q: `is:pr is:open author:${user} org:${GITHUB_ORG}`,
       sort: "updated",
       order: "desc",
       per_page: 30,
     }),
+  );
+  const assignedRes = await searchWithRetryOnZero("fetchMyPRs assigned", () =>
     octokit.search.issuesAndPullRequests({
       q: `is:pr is:open assignee:${user} org:${GITHUB_ORG}`,
       sort: "updated",
       order: "desc",
       per_page: 30,
     }),
-  ]);
+  );
+  console.log(
+    "[github] fetchMyPRs: Authored =",
+    authoredRes.data.items.length,
+    "Assigned =",
+    assignedRes.data.items.length,
+  );
 
   // Deduplicate by ID and sort by updatedAt
   const seenIds = new Set<number>();
@@ -212,7 +248,8 @@ export async function fetchMyPRs(): Promise<MyPullRequest[]> {
         const repo = urlParts[urlParts.length - 1];
         let additions = 0,
           deletions = 0,
-          draft = false;
+          draft = false,
+          branchName = "";
         try {
           const { data: pr } = await octokit.pulls.get({
             owner,
@@ -222,6 +259,7 @@ export async function fetchMyPRs(): Promise<MyPullRequest[]> {
           additions = pr.additions;
           deletions = pr.deletions;
           draft = pr.draft ?? false;
+          branchName = pr.head?.ref ?? "";
         } catch {
           /* ignore */
         }
@@ -243,6 +281,7 @@ export async function fetchMyPRs(): Promise<MyPullRequest[]> {
           mergeQueueState: null as MyPullRequest["mergeQueueState"],
           authorLogin: item.user?.login ?? "",
           isAssignee: item.assignees?.some((a) => a.login === user) ?? false,
+          branchName,
         };
       }),
   );
@@ -419,21 +458,27 @@ export type MyIssue = {
     url: string;
     state: string;
     isDraft: boolean;
+    repoFullName: string;
   }[];
 };
 
 export async function fetchMyIssues(): Promise<MyIssue[]> {
+  console.log("[github] fetchMyIssues: Starting fetch");
   const octokit = await getOctokit();
   const config = await readConfig();
   const { data: userData } = await octokit.users.getAuthenticated();
   const user = userData.login;
+  console.log("[github] fetchMyIssues: User =", user, "Org =", GITHUB_ORG);
 
-  const res = await octokit.search.issuesAndPullRequests({
-    q: `is:issue is:open assignee:${user} org:${GITHUB_ORG}`,
-    sort: "updated",
-    order: "desc",
-    per_page: 30,
-  });
+  const res = await searchWithRetryOnZero("fetchMyIssues", () =>
+    octokit.search.issuesAndPullRequests({
+      q: `is:issue is:open assignee:${user} org:${GITHUB_ORG}`,
+      sort: "updated",
+      order: "desc",
+      per_page: 30,
+    }),
+  );
+  console.log("[github] fetchMyIssues: Found", res.data.items.length, "issues");
 
   const issues: MyIssue[] = res.data.items
     .filter((item) => {
@@ -485,7 +530,7 @@ export async function fetchMyIssues(): Promise<MyIssue[]> {
       for (const num of numbers) {
         const alias = `issue${idx}`;
         fragments.push(
-          `${alias}: repository(owner: "${owner}", name: "${repo}") { issue(number: ${num}) { timelineItems(itemTypes: [CROSS_REFERENCED_EVENT], last: 10) { nodes { ... on CrossReferencedEvent { source { __typename ... on PullRequest { number title url state isDraft } } } } } } }`,
+          `${alias}: repository(owner: "${owner}", name: "${repo}") { issue(number: ${num}) { timelineItems(itemTypes: [CROSS_REFERENCED_EVENT], last: 10) { nodes { ... on CrossReferencedEvent { source { __typename ... on PullRequest { number title url state isDraft repository { nameWithOwner } } } } } } } }`,
         );
         issueKeyMap.push(`${owner}/${repo}#${num}`);
         idx++;
@@ -500,6 +545,9 @@ export async function fetchMyIssues(): Promise<MyIssue[]> {
         url: string;
         state: string;
         isDraft: boolean;
+        repository?: {
+          nameWithOwner: string;
+        };
       };
       type GraphQLIssue = {
         issue: {
@@ -532,6 +580,8 @@ export async function fetchMyIssues(): Promise<MyIssue[]> {
               url: pr.url,
               state: pr.state,
               isDraft: pr.isDraft,
+              repoFullName:
+                pr.repository?.nameWithOwner ?? issueObj.repoFullName,
             };
           });
       }
@@ -554,6 +604,7 @@ export type GitHubNotification = {
   type: string;
   updatedAt: string;
   unread: boolean;
+  prState?: 'open' | 'draft';
 };
 
 const RELEVANT_REASONS = new Set([
@@ -589,12 +640,17 @@ export async function fetchNotifications(options?: {
   const withState = await Promise.all(
     filtered.map(async (n) => {
       if (!n.subject.url) return null;
+      let prState: 'open' | 'draft' | undefined;
       try {
         const { data: subject } = await octokit.request("GET {url}", {
           url: n.subject.url,
         });
-        const state = (subject as { state?: string }).state;
+        const s = subject as { state?: string; draft?: boolean };
+        const state = s.state;
         if (state && state !== "open") return null;
+        if (n.subject.type === "PullRequest") {
+          prState = s.draft ? 'draft' : 'open';
+        }
       } catch {
         // If we can't fetch state, include it anyway
       }
@@ -607,7 +663,8 @@ export async function fetchNotifications(options?: {
         type: n.subject.type,
         updatedAt: n.updated_at,
         unread: n.unread,
-      };
+        ...(prState !== undefined ? { prState } : {}),
+      } as GitHubNotification;
     }),
   );
 
