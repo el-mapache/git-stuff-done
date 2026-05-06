@@ -398,7 +398,7 @@ const TiptapEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(
     const containerRef = useRef<HTMLDivElement>(null);
     const onSlackLinkClickRef = useRef(onSlackLinkClick);
     useEffect(() => { onSlackLinkClickRef.current = onSlackLinkClick; }, [onSlackLinkClick]);
-    const [slackPeek, setSlackPeek] = useState<{ url: string; top: number; left: number } | null>(null);
+    const [slackPeek, setSlackPeek] = useState<{ url: string; top: number; left: number; element: HTMLAnchorElement } | null>(null);
     const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const editor = useEditor({
@@ -565,7 +565,7 @@ const TiptapEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(
         if (!SLACK_URL_RE.test(href)) return;
         if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
         const rect = link.getBoundingClientRect();
-        setSlackPeek({ url: href, top: rect.top, left: rect.right + 4 });
+        setSlackPeek({ url: href, top: rect.top, left: rect.right + 4, element: link as HTMLAnchorElement });
       };
 
       const handleMouseOut = (e: MouseEvent) => {
@@ -595,7 +595,22 @@ const TiptapEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(
             className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-muted shadow-sm transition-colors"
             onMouseEnter={() => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current); }}
             onMouseLeave={() => { hideTimerRef.current = setTimeout(() => setSlackPeek(null), 150); }}
-            onClick={() => { onSlackLinkClick(slackPeek.url); setSlackPeek(null); }}
+            onClick={() => {
+              // Pre-position cursor to end of the block containing this link,
+              // so any subsequent insertion lands directly below it.
+              if (editor) {
+                try {
+                  const domPos = editor.view.posAtDOM(slackPeek.element, 0);
+                  const $pos = editor.state.doc.resolve(domPos);
+                  const endOfBlock = $pos.end($pos.depth);
+                  editor.commands.setTextSelection(endOfBlock);
+                } catch {
+                  // ignore — insertAtCursor falls back to wherever the cursor is
+                }
+              }
+              onSlackLinkClick(slackPeek.url);
+              setSlackPeek(null);
+            }}
             title="View Slack thread"
           >
             <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
