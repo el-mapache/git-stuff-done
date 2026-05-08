@@ -193,7 +193,10 @@ export default function MyPRs({
                         className="min-w-0 flex-1 text-sm font-medium text-foreground hover:text-primary transition-colors block truncate"
                       >
                         {pr.draft && (
-                          <span className="mr-1.5 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                          <span
+                            className="mr-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+                            style={{ backgroundColor: '#57606a', color: '#fff' }}
+                          >
                             DRAFT
                           </span>
                         )}
@@ -266,15 +269,6 @@ export default function MyPRs({
                       <ReferencePill
                         label={`${pr.repoFullName}#${pr.number}`}
                       />
-                      {pr.unresolvedThreads > 0 && (
-                        <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
-                          <MessageSquare
-                            className="h-3 w-3"
-                            aria-hidden="true"
-                          />
-                          {pr.unresolvedThreads}
-                        </span>
-                      )}
                       {pr.branchName && (
                         <button
                           onClick={() => handleCopyBranch(pr.branchName)}
@@ -294,6 +288,15 @@ export default function MyPRs({
                       <span className="rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-semibold text-destructive">
                         -{pr.deletions}
                       </span>
+                      {pr.unresolvedThreads > 0 && (
+                        <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
+                          <MessageSquare
+                            className="h-3 w-3"
+                            aria-hidden="true"
+                          />
+                          {pr.unresolvedThreads}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>

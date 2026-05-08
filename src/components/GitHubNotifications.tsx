@@ -34,7 +34,7 @@ const reasonColors: Record<string, string> = {
   review_requested: 'bg-warning/15 text-warning-foreground',
   comment:          'bg-primary/10 text-primary',
   mention:          'bg-primary/10 text-primary',
-  assign:           'bg-success/15 text-success',
+  assign:           'bg-pink/15 text-pink',
   subscribed:       'bg-secondary text-secondary-foreground',
   author:           'bg-secondary text-secondary-foreground',
   ci_activity:      'bg-destructive/10 text-destructive',
@@ -54,7 +54,7 @@ function reasonBadge(reason: string) {
   const label = displayLabels[reason] ?? reason.replace(/_/g, ' ').toUpperCase();
   return (
     <span
-      className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${colors}`}
+      className={`inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${colors}`}
     >
       {label}
     </span>
@@ -64,13 +64,16 @@ function reasonBadge(reason: string) {
 function prStateBadge(prState: 'open' | 'draft') {
   if (prState === 'draft') {
     return (
-      <span className="inline-block rounded-full px-2 py-0.5 text-xs font-semibold bg-secondary text-secondary-foreground">
+      <span
+        className="inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+        style={{ backgroundColor: '#57606a', color: '#fff' }}
+      >
         DRAFT
       </span>
     );
   }
   return (
-    <span className="inline-block rounded-full px-2 py-0.5 text-xs font-semibold bg-success/15 text-success">
+    <span className="inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold bg-success/15 text-success">
       OPEN
     </span>
   );
