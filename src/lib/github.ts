@@ -309,7 +309,7 @@ export async function fetchMyPRs(): Promise<MyPullRequest[]> {
       for (const num of numbers) {
         const alias = `pr${idx}`;
         fragments.push(
-          `${alias}: repository(owner: "${owner}", name: "${repo}") { pullRequest(number: ${num}) { number mergeQueueEntry { position state } reviewDecision commits(last: 1) { nodes { commit { statusCheckRollup { contexts(first: 100) { nodes { __typename ... on CheckRun { conclusion isRequired(pullRequestNumber: ${num}) } ... on StatusContext { state isRequired(pullRequestNumber: ${num}) } } } } } } } reviewThreads(first: 100) { nodes { isResolved isOutdated comments(first: 100) { nodes { author { login } } } } } } }`,
+          `${alias}: repository(owner: "${owner}", name: "${repo}") { pullRequest(number: ${num}) { number isInMergeQueue mergeQueueEntry { position state } reviewDecision commits(last: 1) { nodes { commit { statusCheckRollup { contexts(first: 100) { nodes { __typename ... on CheckRun { conclusion isRequired(pullRequestNumber: ${num}) } ... on StatusContext { state isRequired(pullRequestNumber: ${num}) } } } } } } } reviewThreads(first: 100) { nodes { isResolved isOutdated comments(first: 100) { nodes { author { login } } } } } } }`,
         );
         prKeyMap.push(`${owner}/${repo}#${num}`);
         idx++;
@@ -332,6 +332,7 @@ export async function fetchMyPRs(): Promise<MyPullRequest[]> {
       type GraphQLPR = {
         pullRequest: {
           number: number;
+          isInMergeQueue: boolean;
           mergeQueueEntry: { position: number; state: string } | null;
           reviewDecision: string | null;
           commits: {
@@ -367,6 +368,8 @@ export async function fetchMyPRs(): Promise<MyPullRequest[]> {
             mqState === "LOCKED" || mqState === "MERGEABLE"
               ? "merging"
               : "queued";
+        } else if (gql.isInMergeQueue) {
+          pr.mergeQueueState = "queued";
         }
         pr.reviewDecision = gql.reviewDecision ?? null;
 
@@ -430,8 +433,8 @@ export async function fetchMyPRs(): Promise<MyPullRequest[]> {
         }).length;
       }
     }
-  } catch {
-    /* degrade gracefully */
+  } catch (err) {
+    console.error("[github] fetchMyPRs: GraphQL enrichment failed:", err);
   }
 
   return prs;
