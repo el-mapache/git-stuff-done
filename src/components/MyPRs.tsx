@@ -198,12 +198,12 @@ export default function MyPRs({
                           </span>
                         )}
                         {pr.mergeQueueState === "merging" && (
-                          <span className="mr-1.5 rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-accent-foreground">
+                          <span className="mr-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold" style={{ backgroundColor: '#9a6700', color: '#fff' }}>
                             MERGING
                           </span>
                         )}
                         {pr.mergeQueueState === "queued" && (
-                          <span className="mr-1.5 rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-accent-foreground">
+                          <span className="mr-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold" style={{ backgroundColor: '#9a6700', color: '#fff' }}>
                             QUEUED
                           </span>
                         )}
