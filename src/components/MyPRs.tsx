@@ -214,7 +214,7 @@ export default function MyPRs({
                         )}
                         {!pr.draft &&
                           pr.reviewDecision === "REVIEW_REQUIRED" && (
-                            <span className="mr-1.5 rounded-full bg-warning/10 px-1.5 py-0.5 text-[10px] font-semibold text-warning-foreground">
+                          <span className="mr-1.5 rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold text-warning-foreground">
                               NEEDS REVIEW
                             </span>
                           )}
