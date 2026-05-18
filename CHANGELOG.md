@@ -2,6 +2,14 @@
 
 All notable changes to git-stuff-done are documented here.
 
+## 2026-05-18
+
+### Added
+
+- **PR filter pills** — the My PRs panel now shows filter pills (Approved, Merging, Draft, Needs Review, Changes Requested, CI Failing, Copilot) to quickly narrow the list; pills show match counts and auto-hide when empty
+
+---
+
 ## 2026-05-01
 
 ### Added

@@ -1,11 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GitMerge, CheckCircle, MessageSquare, Copy, Check } from "lucide-react";
 import { DEMO_PRS } from "@/lib/demo";
 import { useVisibilityPolling } from "@/hooks/useVisibilityPolling";
 import { isCopilotLogin } from "@/lib/constants";
 import { ReferencePill } from "./ReferencePill";
+
+type FilterId = "all" | "approved" | "merging" | "draft" | "needs-review" | "changes-requested" | "ci-failing" | "copilot";
+
+const FILTERS: { id: FilterId; label: string; predicate: (pr: PullRequest) => boolean }[] = [
+  { id: "all", label: "All", predicate: () => true },
+  { id: "approved", label: "Approved", predicate: (pr) => pr.reviewDecision === "APPROVED" },
+  { id: "merging", label: "Merging", predicate: (pr) => pr.mergeQueueState === "queued" || pr.mergeQueueState === "merging" },
+  { id: "draft", label: "Draft", predicate: (pr) => pr.draft },
+  { id: "needs-review", label: "Needs Review", predicate: (pr) => !pr.draft && pr.reviewDecision === "REVIEW_REQUIRED" },
+  { id: "changes-requested", label: "Changes Requested", predicate: (pr) => pr.reviewDecision === "CHANGES_REQUESTED" },
+  { id: "ci-failing", label: "CI Failing", predicate: (pr) => pr.ciStatus === "failure" },
+  { id: "copilot", label: "Copilot", predicate: (pr) => pr.isAssignee && isCopilotLogin(pr.authorLogin) },
+];
 
 type PullRequest = {
   id: number;
@@ -53,9 +66,31 @@ export default function MyPRs({
   const [prs, setPrs] = useState<PullRequest[]>(_prCache ?? []);
   const [loading, setLoading] = useState(_prCache === null);
   const [copiedBranch, setCopiedBranch] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] = useState<FilterId>("all");
   const abortRef = useRef<AbortController | null>(null);
   const isDemoRef = useRef(isDemo);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const filterCounts = useMemo(() => {
+    const counts: Record<FilterId, number> = {} as Record<FilterId, number>;
+    for (const f of FILTERS) {
+      counts[f.id] = f.id === "all" ? prs.length : prs.filter(f.predicate).length;
+    }
+    return counts;
+  }, [prs]);
+
+  const filteredPrs = useMemo(() => {
+    const filter = FILTERS.find((f) => f.id === activeFilter);
+    if (!filter || filter.id === "all") return prs;
+    return prs.filter(filter.predicate);
+  }, [prs, activeFilter]);
+
+  // Reset filter if the active filter has 0 results after data changes
+  useEffect(() => {
+    if (activeFilter !== "all" && filterCounts[activeFilter] === 0) {
+      setActiveFilter("all");
+    }
+  }, [filterCounts, activeFilter]);
 
   const handleCopyBranch = useCallback((branch: string) => {
     navigator.clipboard.writeText(branch).catch(() => {});
@@ -145,6 +180,32 @@ export default function MyPRs({
         </button>
       </div>
 
+      {/* Filter pills */}
+      {prs.length > 0 && (
+        <div className="flex gap-1.5 overflow-x-auto px-4 py-2 border-b border-border scrollbar-none">
+          {FILTERS.map((f) => {
+            const count = filterCounts[f.id];
+            if (f.id !== "all" && count === 0) return null;
+            const isActive = activeFilter === f.id;
+            return (
+              <button
+                key={f.id}
+                onClick={() => setActiveFilter(isActive && f.id !== "all" ? "all" : f.id)}
+                className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                  isActive
+                    ? "bg-primary/15 text-primary"
+                    : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                }`}
+              >
+                {f.label}
+                {" "}
+                <span className="opacity-70">({count})</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
@@ -154,9 +215,13 @@ export default function MyPRs({
           <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
             <CheckCircle className="h-4 w-4" aria-hidden="true" /> No open PRs
           </div>
+        ) : filteredPrs.length === 0 ? (
+          <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+            No PRs match this filter
+          </div>
         ) : (
           <ul className="divide-y divide-border">
-            {prs.map((pr) => (
+            {filteredPrs.map((pr) => (
               <li
                 key={pr.id}
                 className="group px-4 py-3 transition-colors hover:bg-muted/50"
