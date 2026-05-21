@@ -2,6 +2,14 @@
 
 All notable changes to git-stuff-done are documented here.
 
+## 2026-05-21
+
+### Added
+
+- **Scratchpad panel** — a persistent markdown editor that lives across all days, stored in a single file and auto-committed with the rest of your data
+
+---
+
 ## 2026-05-18
 
 ### Added

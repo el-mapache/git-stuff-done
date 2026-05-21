@@ -29,6 +29,7 @@ import MyPRs from './MyPRs';
 import MyIssues from './MyIssues';
 import GitHubNotifications from './GitHubNotifications';
 import AgentSessions from './AgentSessions';
+import Scratchpad from './Scratchpad';
 import AiModal from './AiModal';
 import SummariesModal from './SummariesModal';
 import SearchModal from './SearchModal';
@@ -36,7 +37,7 @@ import CalendarPicker from './CalendarPicker';
 import { GITHUB_ORG } from '@/lib/constants';
 import { DEMO_CONFIG } from '@/lib/demo';
 
-type PanelId = 'log' | 'todos' | 'prs' | 'issues' | 'notifs' | 'sessions';
+type PanelId = 'log' | 'todos' | 'prs' | 'issues' | 'notifs' | 'sessions' | 'scratchpad';
 type LayoutMode = 'grid' | 'column' | 'row';
 
 const PANEL_LABELS: Record<PanelId, string> = {
@@ -46,8 +47,9 @@ const PANEL_LABELS: Record<PanelId, string> = {
   issues: 'My Issues',
   notifs: 'Notifications',
   sessions: 'Agent Sessions',
+  scratchpad: 'Scratchpad',
 };
-const ALL_PANELS: PanelId[] = ['log', 'todos', 'prs', 'issues', 'notifs', 'sessions'];
+const ALL_PANELS: PanelId[] = ['log', 'todos', 'prs', 'issues', 'notifs', 'sessions', 'scratchpad'];
 const DEFAULT_PANELS: PanelId[] = ['log', 'todos', 'prs', 'issues', 'notifs'];
 
 type CommitState = 'idle' | 'committing' | 'success' | 'no-changes' | 'error';
@@ -80,7 +82,7 @@ function loadVisiblePanels(): Set<PanelId> {
 
 const DEFAULT_PANEL_SIDE: Record<PanelId, 'left' | 'right'> = {
   log: 'left', todos: 'left',
-  prs: 'right', issues: 'right', notifs: 'right', sessions: 'right',
+  prs: 'right', issues: 'right', notifs: 'right', sessions: 'right', scratchpad: 'left',
 };
 
 function loadPanelOrder(): PanelId[] {
@@ -670,6 +672,7 @@ export default function Dashboard() {
       case 'issues': return panelCard(id, <MyIssues isDemo={isDemo} onInsert={(text) => insertAtCursorRef.current?.(text)} />, handleListeners);
       case 'notifs': return panelCard(id, <GitHubNotifications refreshTrigger={notifsKey} isDemo={isDemo} onInsert={(text) => insertAtCursorRef.current?.(text)} />, handleListeners);
       case 'sessions': return panelCard(id, <AgentSessions isDemo={isDemo} onInsert={(text) => insertAtCursorRef.current?.(text)} />, handleListeners);
+      case 'scratchpad': return panelCard(id, <Scratchpad isDemo={isDemo} />, handleListeners);
     }
   }
 
