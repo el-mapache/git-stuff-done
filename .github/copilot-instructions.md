@@ -59,3 +59,5 @@ There are no automated tests. The `playwright` package is installed but has no t
 ## Documentation
 
 Always update `README.md` when adding or modifying features.
+
+Update `CHANGELOG.md` for every major functionality change. Entries should describe **what changed from the user's perspective** — not implementation details (no file names, component names, or internal mechanics). Group entries under the date of the change with `### Added`, `### Fixed`, or `### Changed` headings.

@@ -31,22 +31,30 @@ function timeAgo(dateString: string): string {
 }
 
 const reasonColors: Record<string, string> = {
-  review_requested: 'bg-orange-50 text-orange-700 ring-1 ring-inset ring-orange-600/20 dark:bg-orange-500/10 dark:text-orange-400 dark:ring-orange-500/20',
-  comment: 'bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-600/20 dark:bg-sky-500/10 dark:text-sky-400 dark:ring-sky-500/20',
-  mention: 'bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-600/20 dark:bg-sky-500/10 dark:text-sky-400 dark:ring-sky-500/20',
-  assign: 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-500/20',
-  subscribed: 'bg-zinc-50 text-zinc-600 ring-1 ring-inset ring-zinc-500/20 dark:bg-zinc-500/10 dark:text-zinc-400 dark:ring-zinc-500/20',
-  author: 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-400 dark:ring-amber-500/20',
-  ci_activity: 'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-600/20 dark:bg-rose-500/10 dark:text-rose-400 dark:ring-rose-500/20',
+  review_requested: 'bg-warning/15 text-warning-foreground',
+  comment:          'bg-primary/10 text-primary',
+  mention:          'bg-primary/10 text-primary',
+  assign:           'bg-pink/15 text-pink',
+  subscribed:       'bg-secondary text-secondary-foreground',
+  author:           'bg-secondary text-secondary-foreground',
+  ci_activity:      'bg-destructive/10 text-destructive',
 };
 
 function reasonBadge(reason: string) {
   const colors = reasonColors[reason] ?? 'bg-muted text-muted-foreground';
-  const displayLabels: Record<string, string> = { assign: 'assigned', review_requested: 'review requested', ci_activity: 'ci activity' };
-  const label = displayLabels[reason] ?? reason.replace(/_/g, ' ');
+  const displayLabels: Record<string, string> = {
+    assign: 'ASSIGNED',
+    review_requested: 'REVIEW REQUESTED',
+    ci_activity: 'CI ACTIVITY',
+    comment: 'COMMENT',
+    mention: 'MENTION',
+    subscribed: 'SUBSCRIBED',
+    author: 'AUTHOR',
+  };
+  const label = displayLabels[reason] ?? reason.replace(/_/g, ' ').toUpperCase();
   return (
     <span
-      className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${colors}`}
+      className={`inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${colors}`}
     >
       {label}
     </span>
@@ -56,14 +64,17 @@ function reasonBadge(reason: string) {
 function prStateBadge(prState: 'open' | 'draft') {
   if (prState === 'draft') {
     return (
-      <span className="inline-block rounded-full px-2 py-0.5 text-xs font-medium bg-zinc-100 text-zinc-600 ring-1 ring-inset ring-zinc-400/30 dark:bg-zinc-500/10 dark:text-zinc-400 dark:ring-zinc-500/20">
-        Draft
+      <span
+        className="inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+        style={{ backgroundColor: '#57606a', color: '#fff' }}
+      >
+        DRAFT
       </span>
     );
   }
   return (
-    <span className="inline-block rounded-full px-2 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-500/20">
-      Open
+    <span className="inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold bg-success/15 text-success">
+      OPEN
     </span>
   );
 }

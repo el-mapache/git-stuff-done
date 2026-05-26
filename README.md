@@ -12,7 +12,7 @@
 - **✨ AI Assistant** — Summarize your work logs for standups or weekly reports with built-in prompt templates plus saveable, reusable custom prompts. Also includes **Export Raw Logs** — download all work log entries for any date range as a single combined markdown file. Generate AI summaries of Slack threads with model selection and a preview/reject/steer feedback loop.
 - **🔎 Search** — Search across all logs with natural language queries from the dedicated search modal.
 - **✅ TODO List** — Manual TODOs and AI-suggested action items based on your work log.
-- **🔀 My PRs** — Live feed of your open PRs with status badges (Draft, CI Failing, Needs Review, merge queue, etc.).
+- **🔀 My PRs** — Live feed of your open PRs with status badges and filter pills (Approved, Merging, Draft, Needs Review, Changes Requested, CI Failing, Copilot).
 - **🐛 My Issues** — Open issues assigned to you with linked PR status and one-click Copilot agent assignment.
 - **🔔 Notifications** — Filtered GitHub notifications for reviews, mentions, and assignments.
 - **🤖 Agent Sessions** — Browse recent Copilot Cloud Agent sessions with summaries and PR/commit links.
