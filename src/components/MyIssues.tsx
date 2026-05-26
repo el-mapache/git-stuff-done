@@ -258,15 +258,6 @@ export default function MyIssues({
                             Assigned to Copilot
                           </span>
                         )}
-                        {issue.commentCount > 0 && (
-                          <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
-                            <MessageSquare
-                              className="h-3 w-3"
-                              aria-hidden="true"
-                            />{" "}
-                            {issue.commentCount}
-                          </span>
-                        )}
                         {issue.linkedPRs.map((pr) => {
                           const tone =
                             pr.state === "MERGED"
@@ -285,6 +276,15 @@ export default function MyIssues({
                             />
                           );
                         })}
+                        {issue.commentCount > 0 && (
+                          <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
+                            <MessageSquare
+                              className="h-3 w-3"
+                              aria-hidden="true"
+                            />{" "}
+                            {issue.commentCount}
+                          </span>
+                        )}
                         {showCopilotBtn && (
                           <button
                             onClick={() => setCopilotIssue(issue)}

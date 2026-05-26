@@ -38,6 +38,8 @@
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
 
+  --color-pink: var(--pink);
+
   /* Text sizes — scaled by --text-scale for user font-size preference */
   --text-xs: calc(0.75rem * var(--text-scale, 1));
   --text-xs--line-height: calc(1rem * var(--text-scale, 1));
@@ -87,6 +89,8 @@
   --success: oklch(45% 0.15 155);
   --success-foreground: oklch(99% 0.005 155);
 
+  --pink: oklch(55% 0.22 340);
+
   --text-scale: 1;
 
   /* Easing tokens */
@@ -130,6 +134,8 @@
 
   --success: oklch(60% 0.19 145);
   --success-foreground: oklch(13% 0.04 145);
+
+  --pink: oklch(72% 0.2 340);
 
   /* Easing tokens */
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);

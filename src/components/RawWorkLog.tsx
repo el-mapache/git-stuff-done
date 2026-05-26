@@ -31,6 +31,7 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
   const [content, setContent] = useState('');
   const [status, setStatus] = useState<SaveStatus>('idle');
   const [linkifying, setLinkifying] = useState(false);
+  const [hasContent, setHasContent] = useState(false);
   const [slackModalUrl, setSlackModalUrl] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -52,6 +53,7 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
       if (!cancelled) {
         setContent(data.content);
         latestContentRef.current = data.content;
+        setHasContent(!!data.content.trim());
         setStatus('idle');
       }
     }
@@ -100,6 +102,7 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
       if (data.success && data.content) {
         setContent(data.content);
         latestContentRef.current = data.content;
+        setHasContent(!!data.content.trim());
         setStatus('saved');
       }
     } finally {
@@ -115,6 +118,7 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
 
   const handleEditorUpdate = useCallback((markdown: string) => {
     latestContentRef.current = markdown;
+    setHasContent(!!markdown.trim());
     // Pause auto-save while any image upload placeholder is in the document
     if (!markdown.includes(PLACEHOLDER_PREFIX)) {
       scheduleAutosave(markdown);
@@ -175,7 +179,7 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
           )}
           <button
             onClick={handleLinkify}
-            disabled={linkifying || !content.trim()}
+            disabled={linkifying || !hasContent}
             title="Resolve GitHub links to their issue and PR titles"
             className="flex items-center gap-1.5 rounded-lg bg-accent px-2.5 py-1 text-xs font-semibold text-accent-foreground transition hover:opacity-80 disabled:opacity-40"
           >
