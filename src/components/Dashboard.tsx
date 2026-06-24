@@ -77,9 +77,8 @@ function loadVisiblePanels(): Set<PanelId> {
     const stored = localStorage.getItem('gsd-visible-panels');
     if (stored) {
       const parsed = JSON.parse(stored) as PanelId[];
-      const visible = parsed.filter((id): id is PanelId => ALL_PANELS.includes(id) && id !== 'scratchpad');
+      const visible = parsed.filter((id): id is PanelId => ALL_PANELS.includes(id));
       if (visible.length) {
-        localStorage.setItem('gsd-visible-panels', JSON.stringify(visible));
         return new Set(visible);
       }
     }
