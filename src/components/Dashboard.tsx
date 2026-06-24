@@ -72,10 +72,17 @@ function loadLayout(): LayoutMode {
   return stored === 'grid' || stored === 'column' || stored === 'row' ? stored : 'grid';
 }
 function loadVisiblePanels(): Set<PanelId> {
-  if (typeof window === 'undefined') return new Set(ALL_PANELS);
+  if (typeof window === 'undefined') return new Set(DEFAULT_PANELS);
   try {
     const stored = localStorage.getItem('gsd-visible-panels');
-    if (stored) return new Set(JSON.parse(stored) as PanelId[]);
+    if (stored) {
+      const parsed = JSON.parse(stored) as PanelId[];
+      const visible = parsed.filter((id): id is PanelId => ALL_PANELS.includes(id) && id !== 'scratchpad');
+      if (visible.length) {
+        localStorage.setItem('gsd-visible-panels', JSON.stringify(visible));
+        return new Set(visible);
+      }
+    }
   } catch { /* ignore */ }
   return new Set(DEFAULT_PANELS);
 }
