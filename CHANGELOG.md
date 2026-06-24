@@ -2,6 +2,14 @@
 
 All notable changes to git-stuff-done are documented here.
 
+## 2026-06-24
+
+### Added
+
+- **Scratchpad linkify** — the Scratchpad panel now includes a Linkify button that converts bare GitHub and Slack URLs in your scratchpad into richer markdown links.
+
+---
+
 ## 2026-05-21
 
 ### Added

@@ -16,7 +16,7 @@
 - **🐛 My Issues** — Open issues assigned to you with linked PR status and one-click Copilot agent assignment.
 - **🔔 Notifications** — Filtered GitHub notifications for reviews, mentions, and assignments.
 - **🤖 Agent Sessions** — Browse recent Copilot Cloud Agent sessions with summaries and PR/commit links.
-- **📝 Scratchpad** — Persistent free-form markdown editor that lives across all days.
+- **📝 Scratchpad** — Persistent free-form markdown editor that lives across all days, with a built-in linkify action for turning bare GitHub and Slack links into richer markdown links.
 - **🚀 Auto-commit & Push** — Hourly auto-commit of your logs and TODOs to a git repository
 
 
