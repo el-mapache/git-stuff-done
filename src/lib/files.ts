@@ -166,6 +166,25 @@ export async function writeConfig(config: AppConfig): Promise<void> {
   await writeFile(configPath(), JSON.stringify(config, null, 2), "utf-8");
 }
 
+// --- Scratchpad I/O ---
+
+function scratchpadPath(): string {
+  return path.join(dataDir(), "scratchpad.md");
+}
+
+export async function readScratchpad(): Promise<string> {
+  try {
+    return await readFile(scratchpadPath(), "utf-8");
+  } catch {
+    return "";
+  }
+}
+
+export async function writeScratchpad(content: string): Promise<void> {
+  await ensureDirs();
+  await writeFile(scratchpadPath(), content, "utf-8");
+}
+
 // --- Summary browsing helpers ---
 
 export async function listSummaries(): Promise<string[]> {
