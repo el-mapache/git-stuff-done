@@ -796,3 +796,118 @@ export async function assignCopilotToIssue(opts: {
 
   return { success: true };
 }
+
+// --- Daily activity (created issues/PRs + authored commits) ---
+
+export type ActivityItem = {
+  number: number;
+  title: string;
+  url: string;
+  repoFullName: string;
+};
+
+export type CommitItem = {
+  sha: string;
+  shortSha: string;
+  message: string;
+  url: string;
+  repoFullName: string;
+};
+
+export type GitHubActivity = {
+  issuesCreated: ActivityItem[];
+  prsCreated: ActivityItem[];
+  commits: CommitItem[];
+};
+
+/** Split a comma-separated GITHUB_ORG into trimmed, non-empty org names. */
+function orgList(): string[] {
+  return GITHUB_ORG.split(",").map((o) => o.trim()).filter(Boolean);
+}
+
+/**
+ * Gather issues created, PRs created, and commits authored by the
+ * authenticated user on `date` (YYYY-MM-DD) across all configured orgs.
+ * Ignored repos are filtered out. Failures in any single query are logged
+ * and treated as empty so a partial outage still yields a useful result.
+ */
+export async function fetchGitHubActivity(date: string): Promise<GitHubActivity> {
+  const octokit = await getOctokit();
+  const config = await readConfig();
+  const { data: userData } = await octokit.users.getAuthenticated();
+  const user = userData.login;
+  const orgs = orgList();
+
+  const repoOf = (item: { repository_url?: string; html_url?: string }) => {
+    if (item.repository_url) {
+      const parts = item.repository_url.split("/");
+      return `${parts[parts.length - 2]}/${parts[parts.length - 1]}`;
+    }
+    return "";
+  };
+  const ignored = (repoFullName: string) =>
+    config.ignoredRepos.includes(repoFullName.split("/").pop() ?? "");
+
+  const issuesCreated: ActivityItem[] = [];
+  const prsCreated: ActivityItem[] = [];
+  const commits: CommitItem[] = [];
+
+  for (const org of orgs) {
+    // Issues created
+    try {
+      const res = await octokit.search.issuesAndPullRequests({
+        q: `is:issue author:${user} org:${org} created:${date}`,
+        per_page: 50,
+      });
+      for (const item of res.data.items) {
+        const repoFullName = repoOf(item);
+        if (ignored(repoFullName)) continue;
+        issuesCreated.push({ number: item.number, title: item.title, url: item.html_url, repoFullName });
+      }
+    } catch (e) {
+      console.error(`[github] fetchGitHubActivity issues ${org}:`, e);
+    }
+
+    // PRs created
+    try {
+      const res = await octokit.search.issuesAndPullRequests({
+        q: `is:pr author:${user} org:${org} created:${date}`,
+        per_page: 50,
+      });
+      for (const item of res.data.items) {
+        const repoFullName = repoOf(item);
+        if (ignored(repoFullName)) continue;
+        prsCreated.push({ number: item.number, title: item.title, url: item.html_url, repoFullName });
+      }
+    } catch (e) {
+      console.error(`[github] fetchGitHubActivity prs ${org}:`, e);
+    }
+
+    // Commits authored
+    try {
+      const res = await octokit.search.commits({
+        q: `author:${user} org:${org} author-date:${date}`,
+        per_page: 50,
+      });
+      for (const item of res.data.items) {
+        const repoFullName = item.repository?.full_name ?? "";
+        if (ignored(repoFullName)) continue;
+        const sha = item.sha;
+        commits.push({
+          sha,
+          shortSha: sha.slice(0, 7),
+          message: item.commit.message.split("\n")[0],
+          url: item.html_url,
+          repoFullName,
+        });
+      }
+    } catch (e) {
+      console.error(`[github] fetchGitHubActivity commits ${org}:`, e);
+    }
+  }
+
+  console.log(
+    `[github] fetchGitHubActivity ${date}: ${issuesCreated.length} issues, ${prsCreated.length} PRs, ${commits.length} commits`,
+  );
+  return { issuesCreated, prsCreated, commits };
+}
