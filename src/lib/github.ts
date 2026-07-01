@@ -831,12 +831,45 @@ function orgList(): string[] {
  * Ignored repos are filtered out. Failures in any single query are logged
  * and treated as empty so a partial outage still yields a useful result.
  */
+/** UTC offset (in minutes to ADD to UTC to get local time) for `timeZone` at a given instant. */
+function tzOffsetMinutes(atUtcMs: number, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "longOffset" }).formatToParts(
+    new Date(atUtcMs),
+  );
+  const tzName = parts.find((p) => p.type === "timeZoneName")?.value ?? "GMT+0";
+  const m = tzName.match(/GMT([+-]\d{1,2})(?::(\d{2}))?/);
+  if (!m) return 0;
+  const hours = parseInt(m[1], 10);
+  const mins = m[2] ? parseInt(m[2], 10) : 0;
+  return hours * 60 + (hours < 0 ? -mins : mins);
+}
+
+/**
+ * GitHub's search date qualifiers (`created:`, `author-date:`) are always
+ * interpreted in UTC, but `date` here is a calendar day in America/Los_Angeles
+ * (see getTodayDate in files.ts). Passing the bare PT date string straight
+ * into a UTC-interpreted qualifier silently misses/misattributes activity
+ * from roughly 4-8pm PT onward (whenever the UTC day has already rolled
+ * over). Compute the explicit UTC instant range for the PT calendar day and
+ * use a `qualifier:start..end` range instead.
+ */
+function utcRangeForLocalDay(date: string, timeZone = "America/Los_Angeles"): string {
+  const [y, mo, d] = date.split("-").map(Number);
+  const noonUtcGuess = Date.UTC(y, mo - 1, d, 12, 0, 0);
+  const offsetMin = tzOffsetMinutes(noonUtcGuess, timeZone);
+  const startMs = Date.UTC(y, mo - 1, d, 0, 0, 0) - offsetMin * 60_000;
+  const endMs = startMs + 24 * 60 * 60 * 1000 - 1000; // inclusive end, 1s before next day starts
+  const iso = (ms: number) => new Date(ms).toISOString().replace(/\.\d{3}Z$/, "Z");
+  return `${iso(startMs)}..${iso(endMs)}`;
+}
+
 export async function fetchGitHubActivity(date: string): Promise<GitHubActivity> {
   const octokit = await getOctokit();
   const config = await readConfig();
   const { data: userData } = await octokit.users.getAuthenticated();
   const user = userData.login;
   const orgs = orgList();
+  const dateRange = utcRangeForLocalDay(date);
 
   const repoOf = (item: { repository_url?: string; html_url?: string }) => {
     if (item.repository_url) {
@@ -879,7 +912,7 @@ export async function fetchGitHubActivity(date: string): Promise<GitHubActivity>
     try {
       const items = await paginate(`issues ${org}`, async (page) => {
         const res = await octokit.search.issuesAndPullRequests({
-          q: `is:issue author:${user} org:${org} created:${date}`,
+          q: `is:issue author:${user} org:${org} created:${dateRange}`,
           per_page: PAGE_SIZE,
           page,
         });
@@ -900,7 +933,7 @@ export async function fetchGitHubActivity(date: string): Promise<GitHubActivity>
     try {
       const items = await paginate(`prs ${org}`, async (page) => {
         const res = await octokit.search.issuesAndPullRequests({
-          q: `is:pr author:${user} org:${org} created:${date}`,
+          q: `is:pr author:${user} org:${org} created:${dateRange}`,
           per_page: PAGE_SIZE,
           page,
         });
@@ -921,7 +954,7 @@ export async function fetchGitHubActivity(date: string): Promise<GitHubActivity>
     try {
       const items = await paginate(`commits ${org}`, async (page) => {
         const res = await octokit.search.commits({
-          q: `author:${user} org:${org} author-date:${date}`,
+          q: `author:${user} org:${org} author-date:${dateRange}`,
           per_page: PAGE_SIZE,
           page,
         });

@@ -37,10 +37,18 @@ import { fetchAgentTasks } from "./agentTasks";
 import { upsertBlock } from "./managedBlock";
 import { readLog, writeLog, isValidDate } from "./files";
 import { commitWorkLog } from "./git";
+import { DAILY_ACTIVITY_KEY } from "./constants";
 
-export const DAILY_ACTIVITY_KEY = "daily-activity";
+export { DAILY_ACTIVITY_KEY };
 
 type AgentPR = { number: number; title: string; url: string; repoFullName: string };
+
+/** Format a UTC ISO-8601 timestamp as YYYY-MM-DD in America/Los_Angeles. */
+function isoToLocalDate(iso: string): string | null {
+  const ms = Date.parse(iso);
+  if (Number.isNaN(ms)) return null;
+  return new Date(ms).toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
+}
 
 /** Agent-session PRs whose PR was created or updated on `date`. */
 async function fetchAgentActivity(date: string): Promise<AgentPR[]> {
@@ -48,7 +56,7 @@ async function fetchAgentActivity(date: string): Promise<AgentPR[]> {
     const raw = await fetchAgentTasks(30);
     return raw
       .filter((t) => t.pullRequestNumber !== null && t.repository)
-      .filter((t) => (t.createdAt?.slice(0, 10) === date) || (t.updatedAt?.slice(0, 10) === date))
+      .filter((t) => (t.createdAt && isoToLocalDate(t.createdAt) === date) || (t.updatedAt && isoToLocalDate(t.updatedAt) === date))
       .map((t) => ({
         number: t.pullRequestNumber as number,
         title: t.name,

@@ -7,11 +7,8 @@ import { DEMO_LOG_CONTENT, DEMO_RICH_LOG_CONTENT } from '@/lib/demo';
 import SlackThreadModal from './SlackThreadModal';
 import { PLACEHOLDER_PREFIX } from '@/lib/customImage';
 import { upsertBlock } from '@/lib/managedBlock';
+import { DAILY_ACTIVITY_KEY } from '@/lib/constants';
 
-// Local copy of the daily-activity managed-block key (avoid importing the
-// server orchestrator, which pulls in Octokit/the Copilot SDK, into the
-// client bundle).
-const DAILY_ACTIVITY_KEY = 'daily-activity';
 
 type SaveStatus = 'idle' | 'unsaved' | 'saving' | 'saved';
 
