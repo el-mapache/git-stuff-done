@@ -871,6 +871,8 @@ export async function fetchGitHubActivity(date: string): Promise<GitHubActivity>
   const issuesCreated: ActivityItem[] = [];
   const prsCreated: ActivityItem[] = [];
   const commits: CommitItem[] = [];
+  let succeeded = 0;
+  let failed = 0;
 
   for (const org of orgs) {
     // Issues created
@@ -888,8 +890,10 @@ export async function fetchGitHubActivity(date: string): Promise<GitHubActivity>
         if (ignored(repoFullName)) continue;
         issuesCreated.push({ number: item.number, title: item.title, url: item.html_url, repoFullName });
       }
+      succeeded++;
     } catch (e) {
       console.error(`[github] fetchGitHubActivity issues ${org}:`, e);
+      failed++;
     }
 
     // PRs created
@@ -907,8 +911,10 @@ export async function fetchGitHubActivity(date: string): Promise<GitHubActivity>
         if (ignored(repoFullName)) continue;
         prsCreated.push({ number: item.number, title: item.title, url: item.html_url, repoFullName });
       }
+      succeeded++;
     } catch (e) {
       console.error(`[github] fetchGitHubActivity prs ${org}:`, e);
+      failed++;
     }
 
     // Commits authored
@@ -933,9 +939,15 @@ export async function fetchGitHubActivity(date: string): Promise<GitHubActivity>
           repoFullName,
         });
       }
+      succeeded++;
     } catch (e) {
       console.error(`[github] fetchGitHubActivity commits ${org}:`, e);
+      failed++;
     }
+  }
+
+  if (succeeded === 0 && failed > 0) {
+    throw new Error(`fetchGitHubActivity: all ${failed} search queries failed for ${date}`);
   }
 
   console.log(

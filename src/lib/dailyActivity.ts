@@ -47,7 +47,9 @@ function renderGitHubList(gh: GitHubActivity, agent: AgentPR[]): string {
     const links = cs.map((c) => `[${c.shortSha}](${c.url})`).join(", ");
     lines.push(`- ${cs.length} commit${cs.length === 1 ? "" : "s"} in \`${repo}\` (${links})`);
   }
+  const seenPRs = new Set(gh.prsCreated.map((p) => `${p.repoFullName}#${p.number}`));
   for (const pr of agent) {
+    if (seenPRs.has(`${pr.repoFullName}#${pr.number}`)) continue;
     lines.push(`- Copilot agent: PR [${pr.repoFullName}#${pr.number}](${pr.url}): ${pr.title}`);
   }
   return lines.length > 0 ? lines.join("\n") : "_No GitHub activity._";
