@@ -14,6 +14,7 @@ export type TodoItem = {
 export type AppConfig = {
   ignoredRepos: string[];
   fontSize: string;
+  dailyActivityHour: number;
 };
 
 // --- Paths ---
@@ -150,7 +151,7 @@ function configPath(): string {
   return path.join(dataDir(), "config.json");
 }
 
-const defaultConfig: AppConfig = { ignoredRepos: [], fontSize: '1' };
+const defaultConfig: AppConfig = { ignoredRepos: [], fontSize: '1', dailyActivityHour: 18 };
 
 export async function readConfig(): Promise<AppConfig> {
   try {
