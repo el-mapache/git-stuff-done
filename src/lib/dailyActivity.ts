@@ -224,20 +224,20 @@ async function generateDailyActivityImpl(date: string): Promise<string> {
 // API/button trigger can never run generation for the SAME date concurrently
 // (which would race on readLog/writeLog/commitWorkLog and clobber each
 // other's write). Different dates don't conflict (they touch different log
-// files) and are allowed to run independently.
-let inFlight: Promise<string> | null = null;
-let inFlightDate: string | null = null;
+// files) and are allowed to run independently and concurrently, so this is a
+// Map keyed by date rather than a single scalar slot.
+const inFlightByDate = new Map<string, Promise<string>>();
 
 export async function generateDailyActivity(date: string): Promise<string> {
   if (!isValidDate(date)) throw new Error("Invalid date");
-  if (inFlight && inFlightDate === date) {
-    return inFlight;
-  }
-  inFlightDate = date;
-  inFlight = generateDailyActivityImpl(date).finally(() => {
-    inFlight = null;
-    inFlightDate = null;
+  const existing = inFlightByDate.get(date);
+  if (existing) return existing;
+
+  const promise = generateDailyActivityImpl(date).finally(() => {
+    // Only clear this date's own entry — never touch other dates' entries.
+    inFlightByDate.delete(date);
   });
-  return inFlight;
+  inFlightByDate.set(date, promise);
+  return promise;
 }
 
