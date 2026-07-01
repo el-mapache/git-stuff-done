@@ -34,9 +34,16 @@ type RawTask = Omit<AgentSession, 'taskUrl'>;
 async function fetchTasks(limit: number): Promise<RawTask[]> {
   if (limit < 5) throw new Error('Minimum limit reached with no successful response');
   try {
+    // `gh agent-task list` requires a token from an interactive `gh auth login`
+    // (keyring-stored OAuth session) and rejects tokens supplied via
+    // GITHUB_TOKEN/GH_TOKEN env vars with "this command requires an OAuth
+    // token", even though those env vars work fine for other gh/Octokit
+    // calls in this app. Strip them here so gh falls back to its stored
+    // keyring credential instead of the (incompatible) env-provided one.
+    const { GITHUB_TOKEN: _GITHUB_TOKEN, GH_TOKEN: _GH_TOKEN, ...envWithoutGhTokens } = process.env;
     const { stdout } = await execAsync(
       `gh agent-task list --json ${GH_FIELDS} --limit ${limit}`,
-      { env: { ...process.env, NO_COLOR: '1' } }
+      { env: { ...envWithoutGhTokens, NO_COLOR: '1' } }
     );
     return JSON.parse(stdout) as RawTask[];
   } catch (err) {
