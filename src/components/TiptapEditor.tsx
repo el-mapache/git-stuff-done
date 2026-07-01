@@ -27,13 +27,12 @@ const SLACK_URL_RE = /^https?:\/\/[^/]*\.slack\.com\/archives\//;
 const TrailingSpaceAfterPaste = Extension.create({
   name: "trailingSpaceAfterPaste",
   addProseMirrorPlugins() {
-    const ext = this;
     return [
       new Plugin({
         props: {
           handlePaste: () => {
             setTimeout(() => {
-              ext.editor.chain().focus().insertContent(" ").run();
+              this.editor.chain().focus().insertContent(" ").run();
             }, 0);
             return false;
           },

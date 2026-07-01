@@ -30,7 +30,15 @@ const MentionList = forwardRef<MentionListHandle, MentionListProps>(
     const [selectedIndex, setSelectedIndex] = useState(0);
     const containerRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => setSelectedIndex(0), [items]);
+    // Reset the selection whenever the item list changes. Adjusting state
+    // directly during render (rather than via a `useEffect`) avoids an
+    // extra, unnecessary re-render pass — see
+    // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+    const [prevItems, setPrevItems] = useState(items);
+    if (items !== prevItems) {
+      setPrevItems(items);
+      setSelectedIndex(0);
+    }
 
     useEffect(() => {
       const container = containerRef.current;

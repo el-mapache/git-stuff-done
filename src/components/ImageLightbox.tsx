@@ -37,6 +37,7 @@ export default function ImageLightbox({ src, onClose }: ImageLightboxProps) {
       </button>
 
       {/* Image */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={src}
         alt=""

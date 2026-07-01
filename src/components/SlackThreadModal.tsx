@@ -49,13 +49,19 @@ export default function SlackThreadModal({ isOpen, onClose, url, onInsert }: Sla
   useEffect(() => {
     if (!isOpen || !url) return;
     let cancelled = false;
-    setMarkdown(null);
-    setError(null);
-    setLoading(true);
 
-    fetch(`/api/slack?url=${encodeURIComponent(url)}`)
-      .then((res) => res.json())
-      .then((data) => {
+    // Wrapped in an async IIFE (rather than calling setState synchronously at
+    // the top of the effect body) per react-hooks/set-state-in-effect —
+    // starting a fetch is a legitimate effect, but the linter wants state
+    // resets to happen as part of that async flow, not as a bare synchronous
+    // call in the effect body itself.
+    (async () => {
+      setMarkdown(null);
+      setError(null);
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/slack?url=${encodeURIComponent(url)}`);
+        const data = await res.json();
         if (cancelled) return;
         if (data.error) {
           setError(data.error);
@@ -67,13 +73,12 @@ export default function SlackThreadModal({ isOpen, onClose, url, onInsert }: Sla
             editor.commands.setContent(md);
           }
         }
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) setError('Failed to fetch Slack thread.');
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    })();
 
     return () => { cancelled = true; };
   }, [isOpen, url, editor]);

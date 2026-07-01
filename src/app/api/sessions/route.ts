@@ -40,7 +40,9 @@ async function fetchTasks(limit: number): Promise<RawTask[]> {
     // token", even though those env vars work fine for other gh/Octokit
     // calls in this app. Strip them here so gh falls back to its stored
     // keyring credential instead of the (incompatible) env-provided one.
-    const { GITHUB_TOKEN: _GITHUB_TOKEN, GH_TOKEN: _GH_TOKEN, ...envWithoutGhTokens } = process.env;
+    const envWithoutGhTokens = { ...process.env };
+    delete envWithoutGhTokens.GITHUB_TOKEN;
+    delete envWithoutGhTokens.GH_TOKEN;
     const { stdout } = await execAsync(
       `gh agent-task list --json ${GH_FIELDS} --limit ${limit}`,
       { env: { ...envWithoutGhTokens, NO_COLOR: '1' } }
