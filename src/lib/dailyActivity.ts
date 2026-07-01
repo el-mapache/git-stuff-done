@@ -268,6 +268,33 @@ export function parseSlackResponse(text: string): SlackResult {
 }
 
 /**
+ * Post-process the model's per-channel Slack section: insert a blank line
+ * between channel entries (the model reliably keeps them on consecutive
+ * lines despite prompt instructions) and append a link to that channel's
+ * first message, so each entry is scannable and clickable back to context.
+ */
+function formatSlackSection(slackSection: string, messages: SlackMessage[]): string {
+  if (!slackSection || slackSection.startsWith("_")) return slackSection; // fallback / "no activity" text
+  const firstPermalinkByChannel = new Map<string, string>();
+  for (const m of messages) {
+    if (m.permalink && !firstPermalinkByChannel.has(m.channel)) {
+      firstPermalinkByChannel.set(m.channel, m.permalink);
+    }
+  }
+  const lines = slackSection
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const rendered = lines.map((line) => {
+    const match = line.match(/^\*\*#([^*]+)\*\*/);
+    if (!match) return line;
+    const link = firstPermalinkByChannel.get(match[1]);
+    return link ? `${line} ([view](${link}))` : line;
+  });
+  return rendered.join("\n\n");
+}
+
+/**
  * Search Slack (via gh-slack) for the day's public messages, then call
  * Copilot with a plain (non-tool-calling) prompt to produce the narrative +
  * per-channel Slack summary. Returns a graceful fallback on any failure.
@@ -293,7 +320,8 @@ async function fetchSlackSummary(date: string, gh: GitHubActivity, agent: AgentP
       120_000,
     );
     const content = res?.data?.content ?? "";
-    return parseSlackResponse(content);
+    const parsed = parseSlackResponse(content);
+    return { narrative: parsed.narrative, slackSection: formatSlackSection(parsed.slackSection, messages) };
   } catch (e) {
     console.error("[dailyActivity] fetchSlackSummary failed:", e);
     return { narrative: "", slackSection: "_Slack summary unavailable._" };
