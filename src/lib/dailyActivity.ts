@@ -29,6 +29,7 @@
  *   so onPermissionRequest should return `{ kind: "approved" }` for the read-only
  *   Slack calls — no `as never` cast needed.
  */
+import { CopilotClient } from "@github/copilot-sdk";
 import { fetchGitHubActivity, type GitHubActivity } from "./github";
 import { fetchAgentTasks } from "./agentTasks";
 import { upsertBlock } from "./managedBlock";
@@ -112,6 +113,66 @@ export function assembleSection(date: string, parts: DailyActivityParts): string
   ].join("\n");
 }
 
+const SLACK_MODEL = process.env.DAILY_ACTIVITY_MODEL || "gpt-4.1";
+
+/** Build the prompt that drives Slack gathering + narrative writing. */
+function buildSlackPrompt(date: string, gh: GitHubActivity, agent: AgentPR[]): string {
+  const ghFacts = renderGitHubList(gh, agent);
+  return `You are generating the end-of-day activity summary for ${date} (timezone America/Los_Angeles).
+
+Use the Slack tools available to you to find messages and thread replies that *I* (the authenticated Slack user) sent in PUBLIC channels on ${date}. Ignore private channels and DMs.
+
+Produce a response in exactly this format, with no preamble:
+
+NARRATIVE:
+<one short paragraph (2-4 sentences) blending my GitHub work below with my Slack activity into a cohesive summary of my day>
+
+SLACK:
+<for each public channel I posted in, one line: "**#channel-name** — short summary of what I discussed/decided there". If I had no public Slack activity, output exactly "_No public Slack activity._">
+
+My GitHub activity for the day (already collected — reference it in the narrative, do not re-list it under SLACK):
+${ghFacts}`;
+}
+
+type SlackResult = { narrative: string; slackSection: string };
+
+/** Parse the model's NARRATIVE:/SLACK: response into parts. */
+export function parseSlackResponse(text: string): SlackResult {
+  const slackIdx = text.indexOf("SLACK:");
+  const narrIdx = text.indexOf("NARRATIVE:");
+  if (narrIdx === -1 || slackIdx === -1 || slackIdx < narrIdx) {
+    return { narrative: "", slackSection: "_Slack summary unavailable._" };
+  }
+  const narrative = text.slice(narrIdx + "NARRATIVE:".length, slackIdx).trim();
+  const slackSection = text.slice(slackIdx + "SLACK:".length).trim();
+  return {
+    narrative,
+    slackSection: slackSection || "_No public Slack activity._",
+  };
+}
+
+/**
+ * Call Copilot with the Slack MCP to produce the narrative + per-channel Slack
+ * summary. Returns a graceful fallback on any failure.
+ */
+async function fetchSlackSummary(date: string, gh: GitHubActivity, agent: AgentPR[]): Promise<SlackResult> {
+  const client = new CopilotClient();
+  try {
+    const session = await client.createSession({
+      model: SLACK_MODEL,
+      onPermissionRequest: async () => ({ kind: "approved" as const }),
+    });
+    const res = await session.sendAndWait({ prompt: buildSlackPrompt(date, gh, agent) }, 240_000);
+    const content = res?.data?.content ?? "";
+    return parseSlackResponse(content);
+  } catch (e) {
+    console.error("[dailyActivity] fetchSlackSummary failed:", e);
+    return { narrative: "", slackSection: "_Slack summary unavailable._" };
+  } finally {
+    await client.stop();
+  }
+}
+
 /**
  * Gather everything for `date`, write the managed block into the log, commit.
  * Returns the section markdown (between markers). Throws only if GitHub
@@ -123,12 +184,12 @@ export async function generateDailyActivity(date: string): Promise<string> {
   const gh = await fetchGitHubActivity(date); // throws on hard failure
   const agent = await fetchAgentActivity(date);
 
-  // Slack + narrative are wired in a later task. Placeholder for now.
+  const slack = await fetchSlackSummary(date, gh, agent);
   const parts: DailyActivityParts = {
     gh,
     agent,
-    slackSection: "_Slack summary unavailable._",
-    narrative: "",
+    slackSection: slack.slackSection,
+    narrative: slack.narrative,
   };
 
   const section = assembleSection(date, parts);
