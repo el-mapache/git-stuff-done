@@ -44,7 +44,12 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestContentRef = useRef(content);
+  const currentDateRef = useRef(currentDate);
   const editorRef = useRef<TiptapEditorHandle>(null);
+
+  useEffect(() => {
+    currentDateRef.current = currentDate;
+  }, [currentDate]);
 
   useEffect(() => {
     let cancelled = false;
@@ -133,8 +138,10 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
       // The server already wrote+committed the block for requestDate. If the
       // user navigated to a different day while this (up to ~5 min) request
       // was in flight, applying the merge here would write the wrong day's
-      // content, so skip the client-side merge/save in that case.
-      if (currentDate !== requestDate) return;
+      // content, so skip the client-side merge/save in that case. Read from
+      // a ref (not the closure-local currentDate, which is frozen at the
+      // value from click time) so navigation during the await is detected.
+      if (currentDateRef.current !== requestDate) return;
       if (data.success && data.section) {
         // Cancel any pending debounced autosave so it can't land after (and
         // silently overwrite) the merge-save below with stale pre-merge text.
