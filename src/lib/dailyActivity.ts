@@ -72,12 +72,48 @@ async function fetchAgentActivity(date: string): Promise<AgentPR[]> {
 /** Render the factual GitHub list as markdown bullets. */
 function renderGitHubList(gh: GitHubActivity, agent: AgentPR[]): string {
   const lines: string[] = [];
-  for (const pr of gh.prsCreated) {
+  const reviewStateLabel: Record<string, string> = {
+    approved: "Approved",
+    changes_requested: "Requested changes on",
+    commented: "Reviewed (comment on)",
+  };
+
+  for (const pr of gh.prsOpened) {
     lines.push(`- Opened PR [${pr.repoFullName}#${pr.number}](${pr.url}): ${pr.title}`);
   }
-  for (const issue of gh.issuesCreated) {
+  for (const pr of gh.prsMerged) {
+    lines.push(`- Merged PR [${pr.repoFullName}#${pr.number}](${pr.url}): ${pr.title}`);
+  }
+  for (const pr of gh.prsClosedUnmerged) {
+    lines.push(`- Closed PR [${pr.repoFullName}#${pr.number}](${pr.url}): ${pr.title}`);
+  }
+  for (const issue of gh.issuesOpened) {
     lines.push(`- Created issue [${issue.repoFullName}#${issue.number}](${issue.url}): ${issue.title}`);
   }
+  for (const issue of gh.issuesClosed) {
+    lines.push(`- Closed issue [${issue.repoFullName}#${issue.number}](${issue.url}): ${issue.title}`);
+  }
+  for (const review of gh.reviews) {
+    const label = reviewStateLabel[review.state] ?? "Reviewed";
+    const snippet = review.body ? `: ${review.body}` : "";
+    lines.push(`- ${label} PR [${review.repoFullName}#${review.number}](${review.url}) (${review.title})${snippet}`);
+  }
+
+  // Group comments by repo, listing each comment as a sub-bullet — mirrors the commit grouping below.
+  const commentsByRepo = new Map<string, typeof gh.comments>();
+  for (const c of gh.comments) {
+    const arr = commentsByRepo.get(c.repoFullName) ?? [];
+    arr.push(c);
+    commentsByRepo.set(c.repoFullName, arr);
+  }
+  for (const [repo, cs] of commentsByRepo) {
+    lines.push(`- ${cs.length} comment${cs.length === 1 ? "" : "s"} in \`${repo}\`:`);
+    for (const c of cs) {
+      const snippet = c.body ? `: ${c.body}` : "";
+      lines.push(`  - [${c.targetType === "pr" ? "PR" : "issue"} #${c.number}](${c.url})${snippet}`);
+    }
+  }
+
   // Group commits by repo, listing each commit's message.
   const byRepo = new Map<string, typeof gh.commits>();
   for (const c of gh.commits) {
@@ -91,12 +127,16 @@ function renderGitHubList(gh: GitHubActivity, agent: AgentPR[]): string {
       lines.push(`  - [${c.shortSha}](${c.url}) ${c.message}`);
     }
   }
-  const seenPRs = new Set(gh.prsCreated.map((p) => `${p.repoFullName}#${p.number}`));
+  const seenPRs = new Set(gh.prsOpened.map((p) => `${p.repoFullName}#${p.number}`));
   for (const pr of agent) {
     if (seenPRs.has(`${pr.repoFullName}#${pr.number}`)) continue;
     lines.push(`- Copilot agent: PR [${pr.repoFullName}#${pr.number}](${pr.url}): ${pr.title}`);
   }
-  return lines.length > 0 ? lines.join("\n") : "_No GitHub activity._";
+  const body = lines.length > 0 ? lines.join("\n") : "_No GitHub activity._";
+  const warning = gh.truncated
+    ? "\n\n_⚠️ GitHub activity search hit an API history limit before confirming the full day was covered — some activity may be missing._"
+    : "";
+  return body + warning;
 }
 
 export type DailyActivityParts = {

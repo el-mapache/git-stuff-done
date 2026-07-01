@@ -797,13 +797,31 @@ export async function assignCopilotToIssue(opts: {
   return { success: true };
 }
 
-// --- Daily activity (created issues/PRs + authored commits) ---
+// --- Daily activity ---
 
 export type ActivityItem = {
   number: number;
   title: string;
   url: string;
   repoFullName: string;
+};
+
+export type ReviewItem = {
+  number: number;
+  title: string;
+  url: string;
+  repoFullName: string;
+  state: string;
+  body: string;
+};
+
+export type CommentItem = {
+  number: number;
+  title: string;
+  url: string;
+  repoFullName: string;
+  targetType: "issue" | "pr";
+  body: string;
 };
 
 export type CommitItem = {
@@ -815,22 +833,149 @@ export type CommitItem = {
 };
 
 export type GitHubActivity = {
-  issuesCreated: ActivityItem[];
-  prsCreated: ActivityItem[];
+  issuesOpened: ActivityItem[];
+  issuesClosed: ActivityItem[];
+  prsOpened: ActivityItem[];
+  prsMerged: ActivityItem[];
+  prsClosedUnmerged: ActivityItem[];
+  reviews: ReviewItem[];
+  comments: CommentItem[];
   commits: CommitItem[];
+  /** True if pagination stopped due to GitHub's event-history caps before confirming we'd covered the full day for at least one org — the returned activity for that org may be incomplete. */
+  truncated: boolean;
 };
+
+type GitHubEventRepo = {
+  name: string;
+};
+
+type GitHubEventIssue = {
+  number: number;
+  title: string;
+  html_url: string;
+  pull_request?: unknown;
+};
+
+type GitHubEventPullRequest = {
+  number: number;
+  title: string;
+  html_url: string;
+  merged?: boolean | null;
+};
+
+type GitHubEventReview = {
+  state: string;
+  body?: string | null;
+  html_url: string;
+};
+
+type GitHubEventComment = {
+  body?: string | null;
+  html_url: string;
+};
+
+type GitHubPushCommit = {
+  sha: string;
+  message: string;
+  distinct?: boolean;
+};
+
+type GitHubBaseEvent = {
+  type: string;
+  created_at: string;
+  repo: GitHubEventRepo;
+};
+
+type GitHubPushEvent = GitHubBaseEvent & {
+  type: "PushEvent";
+  payload: {
+    commits?: GitHubPushCommit[];
+  };
+};
+
+type GitHubIssuesEvent = GitHubBaseEvent & {
+  type: "IssuesEvent";
+  payload: {
+    action: string;
+    issue?: GitHubEventIssue;
+  };
+};
+
+type GitHubPullRequestEvent = GitHubBaseEvent & {
+  type: "PullRequestEvent";
+  payload: {
+    action: string;
+    pull_request?: GitHubEventPullRequest;
+  };
+};
+
+type GitHubPullRequestReviewEvent = GitHubBaseEvent & {
+  type: "PullRequestReviewEvent";
+  payload: {
+    action: string;
+    review?: GitHubEventReview;
+    pull_request?: GitHubEventPullRequest;
+  };
+};
+
+type GitHubIssueCommentEvent = GitHubBaseEvent & {
+  type: "IssueCommentEvent";
+  payload: {
+    action: string;
+    issue?: GitHubEventIssue;
+    comment?: GitHubEventComment;
+  };
+};
+
+type GitHubPullRequestReviewCommentEvent = GitHubBaseEvent & {
+  type: "PullRequestReviewCommentEvent";
+  payload: {
+    action: string;
+    pull_request?: GitHubEventPullRequest;
+    comment?: GitHubEventComment;
+  };
+};
+
+type GitHubOrgEvent =
+  | GitHubPushEvent
+  | GitHubIssuesEvent
+  | GitHubPullRequestEvent
+  | GitHubPullRequestReviewEvent
+  | GitHubIssueCommentEvent
+  | GitHubPullRequestReviewCommentEvent
+  | GitHubBaseEvent;
+
+function isPushEvent(event: GitHubOrgEvent): event is GitHubPushEvent {
+  return event.type === "PushEvent";
+}
+
+function isIssuesEvent(event: GitHubOrgEvent): event is GitHubIssuesEvent {
+  return event.type === "IssuesEvent";
+}
+
+function isPullRequestEvent(event: GitHubOrgEvent): event is GitHubPullRequestEvent {
+  return event.type === "PullRequestEvent";
+}
+
+function isPullRequestReviewEvent(event: GitHubOrgEvent): event is GitHubPullRequestReviewEvent {
+  return event.type === "PullRequestReviewEvent";
+}
+
+function isIssueCommentEvent(event: GitHubOrgEvent): event is GitHubIssueCommentEvent {
+  return event.type === "IssueCommentEvent";
+}
+
+function isPullRequestReviewCommentEvent(
+  event: GitHubOrgEvent,
+): event is GitHubPullRequestReviewCommentEvent {
+  return event.type === "PullRequestReviewCommentEvent";
+}
 
 /** Split a comma-separated GITHUB_ORG into trimmed, non-empty org names. */
 function orgList(): string[] {
   return GITHUB_ORG.split(",").map((o) => o.trim()).filter(Boolean);
 }
 
-/**
- * Gather issues created, PRs created, and commits authored by the
- * authenticated user on `date` (YYYY-MM-DD) across all configured orgs.
- * Ignored repos are filtered out. Failures in any single query are logged
- * and treated as empty so a partial outage still yields a useful result.
- */
 /** UTC offset (in minutes to ADD to UTC to get local time) for `timeZone` at a given instant. */
 function tzOffsetMinutes(atUtcMs: number, timeZone: string): number {
   const parts = new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "longOffset" }).formatToParts(
@@ -845,22 +990,22 @@ function tzOffsetMinutes(atUtcMs: number, timeZone: string): number {
 }
 
 /**
- * GitHub's search date qualifiers (`created:`, `author-date:`) are always
- * interpreted in UTC, but `date` here is a calendar day in America/Los_Angeles
- * (see getTodayDate in files.ts). Passing the bare PT date string straight
- * into a UTC-interpreted qualifier silently misses/misattributes activity
- * from roughly 4-8pm PT onward (whenever the UTC day has already rolled
- * over). Compute the explicit UTC instant range for the PT calendar day and
- * use a `qualifier:start..end` range instead.
+ * GitHub event timestamps are always UTC, but `date` here is a calendar day in
+ * America/Los_Angeles (see getTodayDate in files.ts). Compute the explicit
+ * UTC instant range [startMs, endMs] for the PT calendar day so callers can
+ * numerically filter events without missing late-evening local activity once
+ * UTC has already rolled over to the next date.
  */
-function utcRangeForLocalDay(date: string, timeZone = "America/Los_Angeles"): string {
+function utcBoundsForLocalDay(date: string, timeZone = "America/Los_Angeles"): {
+  startMs: number;
+  endMs: number;
+} {
   const [y, mo, d] = date.split("-").map(Number);
   const noonUtcGuess = Date.UTC(y, mo - 1, d, 12, 0, 0);
   const offsetMin = tzOffsetMinutes(noonUtcGuess, timeZone);
   const startMs = Date.UTC(y, mo - 1, d, 0, 0, 0) - offsetMin * 60_000;
-  const endMs = startMs + 24 * 60 * 60 * 1000 - 1000; // inclusive end, 1s before next day starts
-  const iso = (ms: number) => new Date(ms).toISOString().replace(/\.\d{3}Z$/, "Z");
-  return `${iso(startMs)}..${iso(endMs)}`;
+  const endMs = startMs + 24 * 60 * 60 * 1000 - 1000;
+  return { startMs, endMs };
 }
 
 export async function fetchGitHubActivity(date: string): Promise<GitHubActivity> {
@@ -868,123 +1013,225 @@ export async function fetchGitHubActivity(date: string): Promise<GitHubActivity>
   const config = await readConfig();
   const { data: userData } = await octokit.users.getAuthenticated();
   const user = userData.login;
-  const orgs = orgList();
-  const dateRange = utcRangeForLocalDay(date);
-
-  const repoOf = (item: { repository_url?: string; html_url?: string }) => {
-    if (item.repository_url) {
-      const parts = item.repository_url.split("/");
-      return `${parts[parts.length - 2]}/${parts[parts.length - 1]}`;
-    }
-    return "";
-  };
+  const orgs = new Set(orgList());
+  const { startMs, endMs } = utcBoundsForLocalDay(date);
+  const inConfiguredOrg = (repoFullName: string) => orgs.has(repoFullName.split("/")[0] ?? "");
   const ignored = (repoFullName: string) =>
     config.ignoredRepos.includes(repoFullName.split("/").pop() ?? "");
+  const truncateBody = (text: string | null | undefined) => {
+    const normalized = (text ?? "").replace(/\s+/g, " ").trim();
+    return normalized.length > 150 ? `${normalized.slice(0, 150)}…` : normalized;
+  };
 
   const PAGE_SIZE = 100;
-  const PAGE_CAP = 5;
+  const PAGE_CAP = 10;
 
-  /** Paginate a search endpoint, collecting all items up to PAGE_CAP pages. */
-  async function paginate<T>(
-    label: string,
-    fetchPage: (page: number) => Promise<{ items: T[] }>,
-  ): Promise<T[]> {
-    const collected: T[] = [];
+  /**
+   * Paginate the authenticated user's own events (NOT the org-scoped
+   * `/users/{username}/events/orgs/{org}` endpoint, which is the user's
+   * *org dashboard* — i.e. a feed of OTHER members' activity in that org,
+   * not events performed by this user; verified empirically, 0/100 events
+   * from that endpoint had `actor.login === user` in testing). This plain
+   * endpoint correctly returns only events actually performed by `user`,
+   * across all repos/orgs they have activity in (including private repos,
+   * since we're authenticated as that user), with full payload detail.
+   *
+   * Stops paginating once results fall before the requested day (events are
+   * newest-first). Reports `truncated: true` if pagination stopped without
+   * ever confirming we reached activity older than the target day (i.e. we
+   * hit GitHub's hard ~300-event cap or our own page cap first) — the target
+   * day's activity could then be incomplete, which callers should surface
+   * rather than silently treating as "no activity that day".
+   */
+  async function paginateMyEvents(): Promise<{ events: GitHubOrgEvent[]; truncated: boolean }> {
+    const collected: GitHubOrgEvent[] = [];
+    let truncated = false;
     for (let page = 1; page <= PAGE_CAP; page++) {
-      const { items } = await fetchPage(page);
-      collected.push(...items);
-      if (items.length < PAGE_SIZE) break;
+      let events: GitHubOrgEvent[];
+      try {
+        const res = await octokit.request("GET /users/{username}/events", {
+          username: user,
+          per_page: PAGE_SIZE,
+          page,
+        });
+        events = res.data as GitHubOrgEvent[];
+      } catch (e) {
+        // GitHub hard-caps this endpoint at ~300 events (3 pages of 100)
+        // regardless of PAGE_CAP, returning a 422 once exceeded. That's an
+        // expected condition on a very active day, not a real failure — stop
+        // and return what was already collected rather than discarding it by
+        // letting the error propagate to the caller's catch block. Any other
+        // error (auth, etc.) should still propagate so the caller can
+        // correctly treat this as a hard failure.
+        const status = (e as { status?: number })?.status;
+        if (status === 422 && page > 1) {
+          console.warn(`[github] fetchGitHubActivity: hit GitHub's pagination limit at page ${page}, results may be truncated`);
+          truncated = true;
+          break;
+        }
+        throw e;
+      }
+      let reachedBeforeStart = false;
+      for (const event of events) {
+        const createdAtMs = Date.parse(event.created_at);
+        if (Number.isNaN(createdAtMs)) continue;
+        if (createdAtMs > endMs) continue;
+        if (createdAtMs < startMs) {
+          reachedBeforeStart = true;
+          break;
+        }
+        collected.push(event);
+      }
+      if (reachedBeforeStart) break;
+      if (events.length < PAGE_SIZE) break;
       if (page === PAGE_CAP) {
-        console.warn(`[github] fetchGitHubActivity ${label}: safety cap of ${PAGE_CAP} pages reached, results may be truncated`);
+        console.warn(`[github] fetchGitHubActivity: safety cap of ${PAGE_CAP} pages reached, results may be truncated`);
+        truncated = true;
       }
     }
-    return collected;
+    return { events: collected, truncated };
   }
 
-  const issuesCreated: ActivityItem[] = [];
-  const prsCreated: ActivityItem[] = [];
+  const issuesOpened: ActivityItem[] = [];
+  const issuesClosed: ActivityItem[] = [];
+  const prsOpened: ActivityItem[] = [];
+  const prsMerged: ActivityItem[] = [];
+  const prsClosedUnmerged: ActivityItem[] = [];
+  const reviews: ReviewItem[] = [];
+  const comments: CommentItem[] = [];
   const commits: CommitItem[] = [];
+  const seenCommitShas = new Set<string>();
+  let truncated = false;
 
-  for (const org of orgs) {
-    let orgSucceeded = 0;
-    let orgFailed = 0;
-    // Issues created
-    try {
-      const items = await paginate(`issues ${org}`, async (page) => {
-        const res = await octokit.search.issuesAndPullRequests({
-          q: `is:issue author:${user} org:${org} created:${dateRange}`,
-          per_page: PAGE_SIZE,
-          page,
-        });
-        return { items: res.data.items };
-      });
-      for (const item of items) {
-        const repoFullName = repoOf(item);
-        if (ignored(repoFullName)) continue;
-        issuesCreated.push({ number: item.number, title: item.title, url: item.html_url, repoFullName });
+  if (orgs.size > 0) {
+    const { events, truncated: fetchTruncated } = await paginateMyEvents();
+    truncated = fetchTruncated;
+    for (const event of events) {
+      const repoFullName = event.repo.name;
+      if (!inConfiguredOrg(repoFullName) || ignored(repoFullName)) continue;
+      if (isPushEvent(event)) {
+        for (const commit of event.payload.commits ?? []) {
+          if (!commit.distinct || seenCommitShas.has(commit.sha)) continue;
+          seenCommitShas.add(commit.sha);
+          commits.push({
+            sha: commit.sha,
+            shortSha: commit.sha.slice(0, 7),
+            message: commit.message.split("\n")[0],
+            url: `https://github.com/${repoFullName}/commit/${commit.sha}`,
+            repoFullName,
+          });
+        }
+        continue;
       }
-      orgSucceeded++;
-    } catch (e) {
-      console.error(`[github] fetchGitHubActivity issues ${org}:`, e);
-      orgFailed++;
-    }
 
-    // PRs created
-    try {
-      const items = await paginate(`prs ${org}`, async (page) => {
-        const res = await octokit.search.issuesAndPullRequests({
-          q: `is:pr author:${user} org:${org} created:${dateRange}`,
-          per_page: PAGE_SIZE,
-          page,
-        });
-        return { items: res.data.items };
-      });
-      for (const item of items) {
-        const repoFullName = repoOf(item);
-        if (ignored(repoFullName)) continue;
-        prsCreated.push({ number: item.number, title: item.title, url: item.html_url, repoFullName });
+      if (isIssuesEvent(event)) {
+        if (!event.payload.issue) continue;
+        if (event.payload.action === "opened") {
+          issuesOpened.push({
+            number: event.payload.issue.number,
+            title: event.payload.issue.title,
+            url: event.payload.issue.html_url,
+            repoFullName,
+          });
+        } else if (event.payload.action === "closed") {
+          issuesClosed.push({
+            number: event.payload.issue.number,
+            title: event.payload.issue.title,
+            url: event.payload.issue.html_url,
+            repoFullName,
+          });
+        }
+        continue;
       }
-      orgSucceeded++;
-    } catch (e) {
-      console.error(`[github] fetchGitHubActivity prs ${org}:`, e);
-      orgFailed++;
-    }
 
-    // Commits authored
-    try {
-      const items = await paginate(`commits ${org}`, async (page) => {
-        const res = await octokit.search.commits({
-          q: `author:${user} org:${org} author-date:${dateRange}`,
-          per_page: PAGE_SIZE,
-          page,
-        });
-        return { items: res.data.items };
-      });
-      for (const item of items) {
-        const repoFullName = item.repository?.full_name ?? "";
-        if (ignored(repoFullName)) continue;
-        const sha = item.sha;
-        commits.push({
-          sha,
-          shortSha: sha.slice(0, 7),
-          message: item.commit.message.split("\n")[0],
-          url: item.html_url,
+      if (isPullRequestEvent(event)) {
+        if (!event.payload.pull_request) continue;
+        const number = event.payload.pull_request.number;
+        const title = event.payload.pull_request.title;
+        const url = event.payload.pull_request.html_url ?? `https://github.com/${repoFullName}/pull/${number}`;
+        if (event.payload.action === "opened") {
+          prsOpened.push({ number, title, url, repoFullName });
+        } else if (event.payload.action === "closed") {
+          const item = { number, title, url, repoFullName };
+          if (event.payload.pull_request.merged) {
+            prsMerged.push(item);
+          } else {
+            prsClosedUnmerged.push(item);
+          }
+        }
+        continue;
+      }
+
+      if (isPullRequestReviewEvent(event)) {
+        if (
+          event.payload.action !== "submitted" ||
+          !event.payload.review ||
+          !event.payload.pull_request
+        ) {
+          continue;
+        }
+        reviews.push({
+          number: event.payload.pull_request.number,
+          title: event.payload.pull_request.title,
+          url: event.payload.review.html_url,
           repoFullName,
+          state: event.payload.review.state,
+          body: truncateBody(event.payload.review.body),
+        });
+        continue;
+      }
+
+      if (isIssueCommentEvent(event)) {
+        if (
+          event.payload.action !== "created" ||
+          !event.payload.issue ||
+          !event.payload.comment
+        ) {
+          continue;
+        }
+        comments.push({
+          number: event.payload.issue.number,
+          title: event.payload.issue.title,
+          url: event.payload.comment.html_url,
+          repoFullName,
+          targetType: event.payload.issue.pull_request ? "pr" : "issue",
+          body: truncateBody(event.payload.comment.body),
+        });
+        continue;
+      }
+
+      if (isPullRequestReviewCommentEvent(event)) {
+        if (
+          event.payload.action !== "created" ||
+          !event.payload.pull_request ||
+          !event.payload.comment
+        ) {
+          continue;
+        }
+        comments.push({
+          number: event.payload.pull_request.number,
+          title: event.payload.pull_request.title,
+          url: event.payload.comment.html_url,
+          repoFullName,
+          targetType: "pr",
+          body: truncateBody(event.payload.comment.body),
         });
       }
-      orgSucceeded++;
-    } catch (e) {
-      console.error(`[github] fetchGitHubActivity commits ${org}:`, e);
-      orgFailed++;
-    }
-
-    if (orgSucceeded === 0 && orgFailed > 0) {
-      throw new Error(`fetchGitHubActivity: all ${orgFailed} search queries failed for org ${org} on ${date}`);
     }
   }
 
   console.log(
-    `[github] fetchGitHubActivity ${date}: ${issuesCreated.length} issues, ${prsCreated.length} PRs, ${commits.length} commits`,
+    `[github] fetchGitHubActivity ${date}: ${issuesOpened.length} issues opened, ${issuesClosed.length} issues closed, ${prsOpened.length} PRs opened, ${prsMerged.length} PRs merged, ${prsClosedUnmerged.length} PRs closed, ${reviews.length} reviews, ${comments.length} comments, ${commits.length} commits`,
   );
-  return { issuesCreated, prsCreated, commits };
+  return {
+    issuesOpened,
+    issuesClosed,
+    prsOpened,
+    prsMerged,
+    prsClosedUnmerged,
+    reviews,
+    comments,
+    commits,
+    truncated,
+  };
 }

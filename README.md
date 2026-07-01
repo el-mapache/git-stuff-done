@@ -18,7 +18,7 @@
 - **🤖 Agent Sessions** — Browse recent Copilot Cloud Agent sessions with summaries and PR/commit links.
 - **📝 Scratchpad** — Persistent free-form markdown editor that lives across all days, with a built-in linkify action for turning bare GitHub and Slack links into richer markdown links.
 - **🚀 Auto-commit & Push** — Hourly auto-commit of your logs and TODOs to a git repository
-- **📊 Daily Activity** — Auto-generated end-of-day log appended to your work log: a factual list of the GitHub issues/PRs you created and commits you authored (including Copilot agent PRs), plus an AI summary of your public-channel Slack activity grouped by channel and a blended narrative. Runs automatically each evening and on demand via the **Daily activity** button.
+- **📊 Daily Activity** — Auto-generated end-of-day log appended to your work log: a factual list of all your GitHub activity that day (issues/PRs opened, closed, and merged; PR reviews given; comments on issues and PRs; commits pushed — including Copilot agent PRs), plus an AI summary of your public-channel Slack activity grouped by channel and a blended narrative. Runs automatically each evening and on demand via the **Daily activity** button.
 
 
 ## Prerequisites

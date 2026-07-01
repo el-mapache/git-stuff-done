@@ -2,6 +2,14 @@
 
 All notable changes to git-stuff-done are documented here.
 
+## 2026-07-01
+
+### Changed
+
+- **Daily Activity now covers all your GitHub activity** — not just issues/PRs you created and commits you authored, but also PR reviews you gave (approved / requested changes / commented), and comments you left on issues and PRs, plus PRs and issues you closed or merged. Each entry links back to the original GitHub page.
+
+---
+
 ## 2026-06-30
 
 ### Added
