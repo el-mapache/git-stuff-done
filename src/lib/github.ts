@@ -848,6 +848,26 @@ export async function fetchGitHubActivity(date: string): Promise<GitHubActivity>
   const ignored = (repoFullName: string) =>
     config.ignoredRepos.includes(repoFullName.split("/").pop() ?? "");
 
+  const PAGE_SIZE = 100;
+  const PAGE_CAP = 5;
+
+  /** Paginate a search endpoint, collecting all items up to PAGE_CAP pages. */
+  async function paginate<T>(
+    label: string,
+    fetchPage: (page: number) => Promise<{ items: T[] }>,
+  ): Promise<T[]> {
+    const collected: T[] = [];
+    for (let page = 1; page <= PAGE_CAP; page++) {
+      const { items } = await fetchPage(page);
+      collected.push(...items);
+      if (items.length < PAGE_SIZE) break;
+      if (page === PAGE_CAP) {
+        console.warn(`[github] fetchGitHubActivity ${label}: safety cap of ${PAGE_CAP} pages reached, results may be truncated`);
+      }
+    }
+    return collected;
+  }
+
   const issuesCreated: ActivityItem[] = [];
   const prsCreated: ActivityItem[] = [];
   const commits: CommitItem[] = [];
@@ -855,11 +875,15 @@ export async function fetchGitHubActivity(date: string): Promise<GitHubActivity>
   for (const org of orgs) {
     // Issues created
     try {
-      const res = await octokit.search.issuesAndPullRequests({
-        q: `is:issue author:${user} org:${org} created:${date}`,
-        per_page: 50,
+      const items = await paginate(`issues ${org}`, async (page) => {
+        const res = await octokit.search.issuesAndPullRequests({
+          q: `is:issue author:${user} org:${org} created:${date}`,
+          per_page: PAGE_SIZE,
+          page,
+        });
+        return { items: res.data.items };
       });
-      for (const item of res.data.items) {
+      for (const item of items) {
         const repoFullName = repoOf(item);
         if (ignored(repoFullName)) continue;
         issuesCreated.push({ number: item.number, title: item.title, url: item.html_url, repoFullName });
@@ -870,11 +894,15 @@ export async function fetchGitHubActivity(date: string): Promise<GitHubActivity>
 
     // PRs created
     try {
-      const res = await octokit.search.issuesAndPullRequests({
-        q: `is:pr author:${user} org:${org} created:${date}`,
-        per_page: 50,
+      const items = await paginate(`prs ${org}`, async (page) => {
+        const res = await octokit.search.issuesAndPullRequests({
+          q: `is:pr author:${user} org:${org} created:${date}`,
+          per_page: PAGE_SIZE,
+          page,
+        });
+        return { items: res.data.items };
       });
-      for (const item of res.data.items) {
+      for (const item of items) {
         const repoFullName = repoOf(item);
         if (ignored(repoFullName)) continue;
         prsCreated.push({ number: item.number, title: item.title, url: item.html_url, repoFullName });
@@ -885,11 +913,15 @@ export async function fetchGitHubActivity(date: string): Promise<GitHubActivity>
 
     // Commits authored
     try {
-      const res = await octokit.search.commits({
-        q: `author:${user} org:${org} author-date:${date}`,
-        per_page: 50,
+      const items = await paginate(`commits ${org}`, async (page) => {
+        const res = await octokit.search.commits({
+          q: `author:${user} org:${org} author-date:${date}`,
+          per_page: PAGE_SIZE,
+          page,
+        });
+        return { items: res.data.items };
       });
-      for (const item of res.data.items) {
+      for (const item of items) {
         const repoFullName = item.repository?.full_name ?? "";
         if (ignored(repoFullName)) continue;
         const sha = item.sha;
