@@ -115,6 +115,16 @@ export function assembleSection(date: string, parts: DailyActivityParts): string
 
 const SLACK_MODEL = process.env.DAILY_ACTIVITY_MODEL || "gpt-4.1";
 
+/** Reject after `ms` so unbounded SDK calls can't hang the orchestrator. */
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms).unref?.(),
+    ),
+  ]);
+}
+
 /** Build the prompt that drives Slack gathering + narrative writing. */
 function buildSlackPrompt(date: string, gh: GitHubActivity, agent: AgentPR[]): string {
   const ghFacts = renderGitHubList(gh, agent);
@@ -158,10 +168,14 @@ export function parseSlackResponse(text: string): SlackResult {
 async function fetchSlackSummary(date: string, gh: GitHubActivity, agent: AgentPR[]): Promise<SlackResult> {
   const client = new CopilotClient();
   try {
-    const session = await client.createSession({
-      model: SLACK_MODEL,
-      onPermissionRequest: async () => ({ kind: "approved" as const }),
-    });
+    const session = await withTimeout(
+      client.createSession({
+        model: SLACK_MODEL,
+        onPermissionRequest: async () => ({ kind: "approved" as const }),
+      }),
+      30_000,
+      "createSession",
+    );
     const res = await session.sendAndWait({ prompt: buildSlackPrompt(date, gh, agent) }, 240_000);
     const content = res?.data?.content ?? "";
     return parseSlackResponse(content);
@@ -169,7 +183,15 @@ async function fetchSlackSummary(date: string, gh: GitHubActivity, agent: AgentP
     console.error("[dailyActivity] fetchSlackSummary failed:", e);
     return { narrative: "", slackSection: "_Slack summary unavailable._" };
   } finally {
-    await client.stop();
+    try {
+      await withTimeout(client.stop(), 10_000, "client.stop");
+    } catch {
+      try {
+        await client.forceStop();
+      } catch (e) {
+        console.error("[dailyActivity] forceStop failed:", e);
+      }
+    }
   }
 }
 
