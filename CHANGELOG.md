@@ -2,6 +2,14 @@
 
 All notable changes to git-stuff-done are documented here.
 
+## 2026-06-30
+
+### Added
+
+- **Daily Activity summary** — Your work log now gets an automatic end-of-day section listing the GitHub issues and pull requests you created and the commits you authored (including Copilot agent work), alongside an AI summary of your public Slack channel activity grouped by channel. It's generated automatically each evening and can be triggered any time with the new **Daily activity** button.
+
+---
+
 ## 2026-06-24
 
 ### Added

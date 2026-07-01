@@ -18,6 +18,7 @@
 - **🤖 Agent Sessions** — Browse recent Copilot Cloud Agent sessions with summaries and PR/commit links.
 - **📝 Scratchpad** — Persistent free-form markdown editor that lives across all days, with a built-in linkify action for turning bare GitHub and Slack links into richer markdown links.
 - **🚀 Auto-commit & Push** — Hourly auto-commit of your logs and TODOs to a git repository
+- **📊 Daily Activity** — Auto-generated end-of-day log appended to your work log: a factual list of the GitHub issues/PRs you created and commits you authored (including Copilot agent PRs), plus an AI summary of your public-channel Slack activity grouped by channel and a blended narrative. Runs automatically each evening and on demand via the **Daily activity** button.
 
 
 ## Prerequisites
@@ -27,6 +28,14 @@
 - **GitHub Personal Access Token** with Issues, PRs, Notifications, Actions, and Contents scopes (write access required for Copilot agent assignment)
 - **GitHub CLI** (`gh`) — optional fallback for GitHub API access
 - **gh-slack extension** — optional, enables Slack thread viewing: `gh extension install https://github.com/rneatherway/gh-slack`
+- **[github/copilot-slack-mcp](https://github.com/github/copilot-slack-mcp) plugin** — optional, enables the Daily Activity Slack summary:
+  ```bash
+  copilot plugin marketplace add github/copilot-slack-mcp \
+    && copilot plugin install slack-mcp@github-slack-mcp
+  # then run any Slack query in `copilot` once to complete browser OAuth
+  ```
+  This is read-only and degrades gracefully — if the plugin isn't installed or authenticated, the Daily Activity section still renders the GitHub list with a "_Slack summary unavailable._" note.
+
 
 ## Setup
 
@@ -66,6 +75,10 @@
 | `GITHUB_ORG`              | _(none)_                          | GitHub org to filter notifications, PRs, and links                      |
 | `GITHUB_READ_TOKEN`       | _(falls back to `gh auth token`)_ | GitHub PAT with Issues, PRs, Notifications, Actions, Contents scopes    |
 | `GIT_STUFF_DONE_DATA_DIR` | `./` (app dir)                    | Path to a git repo where `logs/` and `data/` will be stored             |
+| `DAILY_ACTIVITY_MODEL`    | `gpt-4.1`                         | Model used to summarize Slack activity for the daily log                |
+
+The evening hour Daily Activity generation runs at is configurable via `dailyActivityHour` in `data/config.json` (default `18`, local Pacific time).
+
 
 ## Screenshots
 
