@@ -4,9 +4,6 @@ import { generateDailyActivity } from "@/lib/dailyActivity";
 
 export const maxDuration = 300;
 
-// Shared in-flight guard so the scheduler and a manual click can't write at once.
-let inFlight: Promise<string> | null = null;
-
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
@@ -14,14 +11,9 @@ export async function POST(req: Request) {
     if (!isValidDate(date)) {
       return NextResponse.json({ error: "Invalid date format" }, { status: 400 });
     }
-    if (!inFlight) {
-      inFlight = generateDailyActivity(date).finally(() => {
-        inFlight = null;
-      });
-    } else {
-      console.log("[daily-activity] Coalescing with in-flight generation");
-    }
-    const section = await inFlight;
+    // generateDailyActivity itself coalesces concurrent calls for the same
+    // date (shared with the evening scheduler), so no local guard needed here.
+    const section = await generateDailyActivity(date);
     return NextResponse.json({ success: true, date, section });
   } catch (err) {
     console.error("[daily-activity] Failed:", err);
@@ -31,3 +23,4 @@ export async function POST(req: Request) {
     );
   }
 }
+

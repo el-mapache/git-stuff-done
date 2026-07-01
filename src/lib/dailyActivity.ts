@@ -200,9 +200,7 @@ async function fetchSlackSummary(date: string, gh: GitHubActivity, agent: AgentP
  * Returns the section markdown (between markers). Throws only if GitHub
  * gathering fails outright (so we never clobber the log with an empty block).
  */
-export async function generateDailyActivity(date: string): Promise<string> {
-  if (!isValidDate(date)) throw new Error("Invalid date");
-
+async function generateDailyActivityImpl(date: string): Promise<string> {
   const gh = await fetchGitHubActivity(date); // throws on hard failure
   const agent = await fetchAgentActivity(date);
 
@@ -221,3 +219,25 @@ export async function generateDailyActivity(date: string): Promise<string> {
   commitWorkLog(`docs(activity): daily activity ${date}`);
   return section;
 }
+
+// Shared in-flight guard, keyed by date, so the evening scheduler and a manual
+// API/button trigger can never run generation for the SAME date concurrently
+// (which would race on readLog/writeLog/commitWorkLog and clobber each
+// other's write). Different dates don't conflict (they touch different log
+// files) and are allowed to run independently.
+let inFlight: Promise<string> | null = null;
+let inFlightDate: string | null = null;
+
+export async function generateDailyActivity(date: string): Promise<string> {
+  if (!isValidDate(date)) throw new Error("Invalid date");
+  if (inFlight && inFlightDate === date) {
+    return inFlight;
+  }
+  inFlightDate = date;
+  inFlight = generateDailyActivityImpl(date).finally(() => {
+    inFlight = null;
+    inFlightDate = null;
+  });
+  return inFlight;
+}
+

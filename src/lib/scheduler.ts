@@ -7,6 +7,13 @@ let lastDate: string = getTodayDate();
 let lastGeneratedDate: string | null = null;
 let generating = false;
 
+// Cap retries so a persistent failure (e.g. broken Slack auth) doesn't
+// re-trigger generation (including the Slack API call and a git commit)
+// every hour for the rest of the day.
+const MAX_ATTEMPTS_PER_DAY = 3;
+let attemptDate: string | null = null;
+let attemptCount = 0;
+
 /** Current hour (0-23) in the app's fixed timezone. */
 function currentHourPT(): number {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -23,6 +30,11 @@ async function maybeGenerateDaily(): Promise<void> {
   if (generating) return;
   const today = getTodayDate();
   if (lastGeneratedDate === today) return;
+  if (attemptDate !== today) {
+    attemptDate = today;
+    attemptCount = 0;
+  }
+  if (attemptCount >= MAX_ATTEMPTS_PER_DAY) return;
   let hour = 18;
   try {
     hour = (await readConfig()).dailyActivityHour;
@@ -32,14 +44,18 @@ async function maybeGenerateDaily(): Promise<void> {
   if (currentHourPT() < hour) return;
 
   generating = true;
+  attemptCount++;
   try {
-    console.log(`Scheduler: generating daily activity for ${today}`);
+    console.log(`Scheduler: generating daily activity for ${today} (attempt ${attemptCount}/${MAX_ATTEMPTS_PER_DAY})`);
     await generateDailyActivity(today);
     lastGeneratedDate = today;
     console.log(`Scheduler: daily activity generated for ${today}`);
   } catch (err) {
     console.error("Scheduler: daily activity generation failed", err);
-    // Leave lastGeneratedDate unset so the next tick retries.
+    if (attemptCount >= MAX_ATTEMPTS_PER_DAY) {
+      console.error(`Scheduler: giving up on daily activity for ${today} after ${attemptCount} attempts`);
+    }
+    // Leave lastGeneratedDate unset so a later tick retries, up to the cap above.
   } finally {
     generating = false;
   }
