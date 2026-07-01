@@ -1,35 +1,37 @@
 /**
- * Slack access mechanism (spike findings — Task 6) — the contract Task 7 implements against.
+ * Slack access mechanism — the contract this module implements against.
  *
- * Slack data comes from GitHub's official Slack MCP: github/copilot-slack-mcp.
- * It is a READ-ONLY HTTP MCP server at https://mcp.slack.com/mcp, installed as a
- * Copilot CLI plugin (`copilot plugin install slack-mcp@github-slack-mcp`). Its
- * `.mcp.json` authenticates via OAuth (`oauthClientId` + `oauthPublicClient`),
- * completed via a one-time interactive browser flow the first time a Slack tool runs.
+ * Slack data comes from the `gh-slack` CLI extension (already used elsewhere
+ * in this app for Slack thread previews, see src/app/api/slack/route.ts),
+ * NOT the Copilot SDK / github/copilot-slack-mcp plugin. An earlier attempt
+ * to search Slack by driving a Copilot SDK session with that MCP plugin
+ * connected but reliably failed to actually find any messages (the model
+ * had no dependable way to invoke a working search), so that approach was
+ * replaced with a deterministic search step:
  *
- * Read-only tool names exposed by the plugin:
- *   slack_search_public, slack_read_channel, slack_read_thread,
- *   slack_read_user_profile, slack_read_canvas
- * (slack_search_public matches our "public channels only" scope.)
+ *   gh slack api get search.messages -t <team> -f query="from:me on:<date>" -f count=100
  *
- * SDK-inheritance probe result: a default `CopilotClient.createSession()` did NOT
- * expose the slack_* tools ("NO SLACK TOOLS"). Two compounding reasons:
- *   1. The one-time OAuth had not been completed in the probe environment, so the
- *      MCP server never connected.
- *   2. The SDK's `MCPRemoteServerConfig` ({ type, url, headers?, tools }) has no
- *      OAuth field, so a manual `mcpServers` override cannot supply credentials.
- * Therefore Task 7 relies on the CLI plugin context: it drives the Slack summary
- * through an SDK session and degrades gracefully to "_Slack summary unavailable._"
- * whenever the slack_* tools are absent or the calls fail. Full Slack output
- * requires the operator to complete the one-time `copilot` Slack OAuth in the
- * runtime environment where this app runs.
+ * This calls Slack's real `search.messages` Web API (via the user's own
+ * Slack session, same auth `gh-slack` already uses) and reliably returns
+ * every message the authenticated user sent that day, with channel name,
+ * privacy flag, and timestamp. Results are filtered to `is_private === false`
+ * channels and to messages whose timestamp actually falls on the requested
+ * date in America/Los_Angeles (defense in depth beyond Slack's own `on:`
+ * search operator). Only the found messages are then handed to a plain
+ * (non-tool-calling) Copilot SDK prompt to write the per-channel summary and
+ * blended narrative — the AI's job is summarization only, not searching.
  *
- * Permission handler contract (from @github/copilot-sdk types.d.ts):
- *   PermissionRequestResult.kind is "approved" | "denied-by-rules" | ...
- *   so onPermissionRequest should return `{ kind: "approved" }` for the read-only
- *   Slack calls — no `as never` cast needed.
+ * Requires the `SLACK_TEAM` env var (falls back to the first comma-separated
+ * `GITHUB_ORG` value) and the `gh-slack` extension installed + authenticated
+ * (`gh extension install https://github.com/rneatherway/gh-slack`, then
+ * `eval $(gh-slack auth -t <team>)` once per the extension's own docs).
+ * Degrades gracefully to "_Slack summary unavailable._" if the team isn't
+ * configured, the extension isn't installed, or the search fails for any
+ * reason — the GitHub-derived section is never blocked by a Slack failure.
  */
 import { CopilotClient } from "@github/copilot-sdk";
+import { execFile } from "child_process";
+import { promisify } from "util";
 import { fetchGitHubActivity, type GitHubActivity } from "./github";
 import { fetchAgentTasks } from "./agentTasks";
 import { upsertBlock } from "./managedBlock";
@@ -68,7 +70,7 @@ function renderGitHubList(gh: GitHubActivity, agent: AgentPR[]): string {
   for (const issue of gh.issuesCreated) {
     lines.push(`- Created issue [${issue.repoFullName}#${issue.number}](${issue.url}): ${issue.title}`);
   }
-  // Group commits by repo
+  // Group commits by repo, listing each commit's message.
   const byRepo = new Map<string, typeof gh.commits>();
   for (const c of gh.commits) {
     const arr = byRepo.get(c.repoFullName) ?? [];
@@ -76,8 +78,10 @@ function renderGitHubList(gh: GitHubActivity, agent: AgentPR[]): string {
     byRepo.set(c.repoFullName, arr);
   }
   for (const [repo, cs] of byRepo) {
-    const links = cs.map((c) => `[${c.shortSha}](${c.url})`).join(", ");
-    lines.push(`- ${cs.length} commit${cs.length === 1 ? "" : "s"} in \`${repo}\` (${links})`);
+    lines.push(`- ${cs.length} commit${cs.length === 1 ? "" : "s"} in \`${repo}\`:`);
+    for (const c of cs) {
+      lines.push(`  - [${c.shortSha}](${c.url}) ${c.message}`);
+    }
   }
   const seenPRs = new Set(gh.prsCreated.map((p) => `${p.repoFullName}#${p.number}`));
   for (const pr of agent) {
@@ -103,6 +107,7 @@ export function assembleSection(date: string, parts: DailyActivityParts): string
     `## 📊 Daily Activity — ${date}`,
     ``,
     `_Summary_`,
+    ``,
     narrative,
     ``,
     `### GitHub`,
@@ -114,6 +119,7 @@ export function assembleSection(date: string, parts: DailyActivityParts): string
 }
 
 const SLACK_MODEL = process.env.DAILY_ACTIVITY_MODEL || "gpt-4.1";
+const execFileAsync = promisify(execFile);
 
 /** Reject after `ms` so unbounded SDK calls can't hang the orchestrator. */
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
@@ -125,12 +131,97 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
   ]);
 }
 
-/** Build the prompt that drives Slack gathering + narrative writing. */
-function buildSlackPrompt(date: string, gh: GitHubActivity, agent: AgentPR[]): string {
+/** Resolve the Slack team for `gh slack`: explicit SLACK_TEAM, else the first GITHUB_ORG entry. */
+function slackTeam(): string {
+  const explicit = process.env.SLACK_TEAM?.trim();
+  if (explicit) return explicit;
+  return (process.env.GITHUB_ORG ?? "").split(",")[0]?.trim() ?? "";
+}
+
+type SlackMessage = { channel: string; text: string; ts: string; permalink?: string };
+
+/** Format a Slack epoch `ts` (e.g. "1782855930.731429") as YYYY-MM-DD in America/Los_Angeles. */
+function tsToLocalDate(ts: string): string {
+  const millis = Math.floor(parseFloat(ts) * 1000);
+  return new Date(millis).toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
+}
+
+/**
+ * Search Slack for messages the authenticated user sent on `date`, via the
+ * `gh-slack` extension's raw API passthrough. Filters to public channels and
+ * to messages genuinely timestamped on `date` (defense in depth beyond
+ * Slack's own `on:` search operator). Returns `null` (not an empty array) if
+ * the search itself couldn't be attempted or failed, so callers can
+ * distinguish "no team configured / extension missing / search error" from
+ * "searched successfully and found nothing".
+ */
+async function searchSlackMessages(date: string): Promise<SlackMessage[] | null> {
+  const team = slackTeam();
+  if (!team) {
+    console.log("[dailyActivity] Slack: no SLACK_TEAM/GITHUB_ORG configured, skipping");
+    return null;
+  }
+  try {
+    const { stdout } = await execFileAsync(
+      "gh",
+      ["slack", "api", "get", "search.messages", "-t", team, "-f", `query=from:me on:${date}`, "-f", "count=100"],
+      { env: { ...process.env, NO_COLOR: "1" }, maxBuffer: 20 * 1024 * 1024 },
+    );
+    const data = JSON.parse(stdout) as {
+      ok?: boolean;
+      messages?: { matches?: Array<{ channel?: { name?: string; is_private?: boolean }; text?: string; ts?: string; permalink?: string }> };
+    };
+    if (!data.ok) return null;
+    const matches = data.messages?.matches ?? [];
+    const messages: SlackMessage[] = [];
+    for (const m of matches) {
+      if (!m.channel || m.channel.is_private || !m.channel.name || !m.ts) continue;
+      if (tsToLocalDate(m.ts) !== date) continue;
+      messages.push({ channel: m.channel.name, text: m.text ?? "", ts: m.ts, permalink: m.permalink });
+    }
+    return messages;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    const notInstalled =
+      msg.includes("executable file not found") ||
+      msg.includes("unknown command") ||
+      msg.includes("no extension") ||
+      msg.includes("command not found");
+    if (notInstalled) {
+      console.log("[dailyActivity] Slack: gh-slack extension not installed, skipping");
+    } else {
+      console.error("[dailyActivity] Slack search failed:", msg);
+    }
+    return null;
+  }
+}
+
+/** Render the raw Slack messages, grouped by channel, as facts for the summarizer prompt. */
+function renderSlackFacts(messages: SlackMessage[]): string {
+  if (messages.length === 0) return "(no public Slack messages found)";
+  const byChannel = new Map<string, SlackMessage[]>();
+  for (const m of messages) {
+    const arr = byChannel.get(m.channel) ?? [];
+    arr.push(m);
+    byChannel.set(m.channel, arr);
+  }
+  const lines: string[] = [];
+  for (const [channel, msgs] of byChannel) {
+    lines.push(`#${channel}:`);
+    for (const m of msgs.slice(0, 20)) {
+      const text = m.text.replace(/\s+/g, " ").trim().slice(0, 300);
+      lines.push(`- ${text || "(no text, e.g. a file/attachment)"}`);
+    }
+  }
+  return lines.join("\n");
+}
+
+/** Build the prompt that asks the model to summarize already-gathered Slack facts. */
+function buildSummaryPrompt(date: string, gh: GitHubActivity, agent: AgentPR[], slackFacts: string): string {
   const ghFacts = renderGitHubList(gh, agent);
   return `You are generating the end-of-day activity summary for ${date} (timezone America/Los_Angeles).
 
-Use the Slack tools available to you to find messages and thread replies that *I* (the authenticated Slack user) sent in PUBLIC channels on ${date}. Ignore private channels and DMs.
+Below are the public-channel Slack messages I actually sent on ${date} (already collected — do not search for more, just summarize what's given).
 
 Produce a response in exactly this format, with no preamble:
 
@@ -138,10 +229,13 @@ NARRATIVE:
 <one short paragraph (2-4 sentences) blending my GitHub work below with my Slack activity into a cohesive summary of my day>
 
 SLACK:
-<for each public channel I posted in, one line: "**#channel-name** — short summary of what I discussed/decided there". If I had no public Slack activity, output exactly "_No public Slack activity._">
+<for each channel below that has messages, one line: "**#channel-name** — short summary of what I discussed/decided there". If there are no Slack messages below, output exactly "_No public Slack activity._">
 
-My GitHub activity for the day (already collected — reference it in the narrative, do not re-list it under SLACK):
-${ghFacts}`;
+My GitHub activity for the day (reference it in the narrative, do not re-list it under SLACK):
+${ghFacts}
+
+My Slack messages for the day, grouped by channel:
+${slackFacts}`;
 }
 
 type SlackResult = { narrative: string; slackSection: string };
@@ -162,10 +256,16 @@ export function parseSlackResponse(text: string): SlackResult {
 }
 
 /**
- * Call Copilot with the Slack MCP to produce the narrative + per-channel Slack
- * summary. Returns a graceful fallback on any failure.
+ * Search Slack (via gh-slack) for the day's public messages, then call
+ * Copilot with a plain (non-tool-calling) prompt to produce the narrative +
+ * per-channel Slack summary. Returns a graceful fallback on any failure.
  */
 async function fetchSlackSummary(date: string, gh: GitHubActivity, agent: AgentPR[]): Promise<SlackResult> {
+  const messages = await searchSlackMessages(date);
+  if (messages === null) {
+    return { narrative: "", slackSection: "_Slack summary unavailable._" };
+  }
+
   const client = new CopilotClient();
   try {
     const session = await withTimeout(
@@ -176,7 +276,10 @@ async function fetchSlackSummary(date: string, gh: GitHubActivity, agent: AgentP
       30_000,
       "createSession",
     );
-    const res = await session.sendAndWait({ prompt: buildSlackPrompt(date, gh, agent) }, 240_000);
+    const res = await session.sendAndWait(
+      { prompt: buildSummaryPrompt(date, gh, agent, renderSlackFacts(messages)) },
+      120_000,
+    );
     const content = res?.data?.content ?? "";
     return parseSlackResponse(content);
   } catch (e) {

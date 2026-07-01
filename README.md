@@ -27,14 +27,9 @@
 - **GitHub Copilot CLI** (`copilot`) in your PATH — [installation guide](https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli)
 - **GitHub Personal Access Token** with Issues, PRs, Notifications, Actions, and Contents scopes (write access required for Copilot agent assignment)
 - **GitHub CLI** (`gh`) — optional fallback for GitHub API access
-- **gh-slack extension** — optional, enables Slack thread viewing: `gh extension install https://github.com/rneatherway/gh-slack`
-- **[github/copilot-slack-mcp](https://github.com/github/copilot-slack-mcp) plugin** — optional, enables the Daily Activity Slack summary:
-  ```bash
-  copilot plugin marketplace add github/copilot-slack-mcp \
-    && copilot plugin install slack-mcp@github-slack-mcp
-  # then run any Slack query in `copilot` once to complete browser OAuth
-  ```
-  This is read-only and degrades gracefully — if the plugin isn't installed or authenticated, the Daily Activity section still renders the GitHub list with a "_Slack summary unavailable._" note.
+- **gh-slack extension** — optional, enables Slack thread viewing and the Daily Activity Slack summary: `gh extension install https://github.com/rneatherway/gh-slack`, then run `eval $(gh-slack auth -t <your-slack-team>)` once to authenticate.
+  This is read-only and degrades gracefully — if the extension isn't installed/authenticated or `SLACK_TEAM`/`GITHUB_ORG` isn't set, the Daily Activity section still renders the GitHub list with a "_Slack summary unavailable._" note.
+
 
 
 ## Setup
@@ -76,6 +71,7 @@
 | `GITHUB_READ_TOKEN`       | _(falls back to `gh auth token`)_ | GitHub PAT with Issues, PRs, Notifications, Actions, Contents scopes    |
 | `GIT_STUFF_DONE_DATA_DIR` | `./` (app dir)                    | Path to a git repo where `logs/` and `data/` will be stored             |
 | `DAILY_ACTIVITY_MODEL`    | `gpt-4.1`                         | Model used to summarize Slack activity for the daily log                |
+| `SLACK_TEAM`              | _(falls back to first `GITHUB_ORG` value)_ | Slack team name passed to `gh slack`, used to search your Slack activity for the daily log |
 
 The evening hour Daily Activity generation runs at is configurable via `dailyActivityHour` in `data/config.json` (default `18`, local Pacific time).
 
