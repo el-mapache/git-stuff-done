@@ -1,11 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertTriangle, FileText, Link2 } from 'lucide-react';
+import { AlertTriangle, FileText, Link2, Sparkles } from 'lucide-react';
 import TiptapEditor, { type TiptapEditorHandle } from './TiptapEditor';
 import { DEMO_LOG_CONTENT, DEMO_RICH_LOG_CONTENT } from '@/lib/demo';
 import SlackThreadModal from './SlackThreadModal';
 import { PLACEHOLDER_PREFIX } from '@/lib/customImage';
+import { upsertBlock } from '@/lib/managedBlock';
+
+// Local copy of the daily-activity managed-block key (avoid importing the
+// server orchestrator, which pulls in Octokit/the Copilot SDK, into the
+// client bundle).
+const DAILY_ACTIVITY_KEY = 'daily-activity';
 
 type SaveStatus = 'idle' | 'unsaved' | 'saving' | 'saved';
 
@@ -31,6 +37,7 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
   const [content, setContent] = useState('');
   const [status, setStatus] = useState<SaveStatus>('idle');
   const [linkifying, setLinkifying] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [hasContent, setHasContent] = useState(false);
   const [slackModalUrl, setSlackModalUrl] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -110,6 +117,34 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
     }
   };
 
+  const handleGenerateActivity = async () => {
+    if (isDemo) return;
+    setGenerating(true);
+    try {
+      // Persist current edits first so we merge into the latest content.
+      await save(latestContentRef.current);
+      const res = await fetch('/api/daily-activity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: currentDate }),
+      });
+      const data = await res.json();
+      if (data.success && data.section) {
+        const merged = upsertBlock(latestContentRef.current, DAILY_ACTIVITY_KEY, data.section);
+        setContent(merged);
+        latestContentRef.current = merged;
+        setHasContent(!!merged.trim());
+        await save(merged);
+      } else {
+        handleUploadError(data.error || 'Failed to generate daily activity');
+      }
+    } catch {
+      handleUploadError('Failed to generate daily activity');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const scheduleAutosave = useCallback((text: string) => {
     setStatus('unsaved');
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -177,6 +212,15 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
               {STATUS_LABEL[status]}
             </span>
           )}
+          <button
+            onClick={handleGenerateActivity}
+            disabled={generating || isDemo}
+            title={isDemo ? 'Disabled in demo mode' : 'Generate today\u2019s GitHub + Slack activity summary'}
+            className="flex items-center gap-1.5 rounded-lg bg-accent px-2.5 py-1 text-xs font-semibold text-accent-foreground transition hover:opacity-80 disabled:opacity-40"
+          >
+            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+            {generating ? 'Generating…' : 'Daily activity'}
+          </button>
           <button
             onClick={handleLinkify}
             disabled={linkifying || !hasContent}
