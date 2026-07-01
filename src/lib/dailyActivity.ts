@@ -169,9 +169,13 @@ async function searchSlackMessages(date: string): Promise<SlackMessage[] | null>
     );
     const data = JSON.parse(stdout) as {
       ok?: boolean;
+      error?: string;
       messages?: { matches?: Array<{ channel?: { name?: string; is_private?: boolean }; text?: string; ts?: string; permalink?: string }> };
     };
-    if (!data.ok) return null;
+    if (!data.ok) {
+      console.error(`[dailyActivity] Slack search.messages returned ok:false${data.error ? ` (${data.error})` : ""}`);
+      return null;
+    }
     const matches = data.messages?.matches ?? [];
     const messages: SlackMessage[] = [];
     for (const m of matches) {
