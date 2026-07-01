@@ -1056,15 +1056,18 @@ export async function fetchGitHubActivity(date: string): Promise<GitHubActivity>
         });
         events = res.data as GitHubOrgEvent[];
       } catch (e) {
-        // GitHub hard-caps this endpoint at ~300 events (3 pages of 100)
-        // regardless of PAGE_CAP, returning a 422 once exceeded. That's an
-        // expected condition on a very active day, not a real failure — stop
-        // and return what was already collected rather than discarding it by
-        // letting the error propagate to the caller's catch block. Any other
-        // error (auth, etc.) should still propagate so the caller can
+        // GitHub hard-caps this endpoint at ~300 events regardless of
+        // PAGE_CAP, returning a 422 once a page's start offset exceeds that
+        // ring buffer (with PAGE_SIZE=100 that's requesting page 4+). That's
+        // an expected condition on a very active day, not a real failure —
+        // stop and return what was already collected rather than discarding
+        // it by letting the error propagate to the caller's catch block. Any
+        // other error (auth, etc.), or a 422 before we've actually reached
+        // that ~300-event boundary, should still propagate so the caller can
         // correctly treat this as a hard failure.
         const status = (e as { status?: number })?.status;
-        if (status === 422 && page > 1) {
+        const eventsAlreadyFetched = (page - 1) * PAGE_SIZE;
+        if (status === 422 && eventsAlreadyFetched >= 300) {
           console.warn(`[github] fetchGitHubActivity: hit GitHub's pagination limit at page ${page}, results may be truncated`);
           truncated = true;
           break;
