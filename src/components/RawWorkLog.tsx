@@ -119,6 +119,7 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
 
   const handleGenerateActivity = async () => {
     if (isDemo) return;
+    const requestDate = currentDate;
     setGenerating(true);
     try {
       // Persist current edits first so we merge into the latest content.
@@ -126,10 +127,18 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
       const res = await fetch('/api/daily-activity', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date: currentDate }),
+        body: JSON.stringify({ date: requestDate }),
       });
       const data = await res.json();
+      // The server already wrote+committed the block for requestDate. If the
+      // user navigated to a different day while this (up to ~5 min) request
+      // was in flight, applying the merge here would write the wrong day's
+      // content, so skip the client-side merge/save in that case.
+      if (currentDate !== requestDate) return;
       if (data.success && data.section) {
+        // Cancel any pending debounced autosave so it can't land after (and
+        // silently overwrite) the merge-save below with stale pre-merge text.
+        if (timerRef.current) clearTimeout(timerRef.current);
         const merged = upsertBlock(latestContentRef.current, DAILY_ACTIVITY_KEY, data.section);
         setContent(merged);
         latestContentRef.current = merged;
