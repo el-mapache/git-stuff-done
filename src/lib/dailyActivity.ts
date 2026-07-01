@@ -1,3 +1,34 @@
+/**
+ * Slack access mechanism (spike findings — Task 6) — the contract Task 7 implements against.
+ *
+ * Slack data comes from GitHub's official Slack MCP: github/copilot-slack-mcp.
+ * It is a READ-ONLY HTTP MCP server at https://mcp.slack.com/mcp, installed as a
+ * Copilot CLI plugin (`copilot plugin install slack-mcp@github-slack-mcp`). Its
+ * `.mcp.json` authenticates via OAuth (`oauthClientId` + `oauthPublicClient`),
+ * completed via a one-time interactive browser flow the first time a Slack tool runs.
+ *
+ * Read-only tool names exposed by the plugin:
+ *   slack_search_public, slack_read_channel, slack_read_thread,
+ *   slack_read_user_profile, slack_read_canvas
+ * (slack_search_public matches our "public channels only" scope.)
+ *
+ * SDK-inheritance probe result: a default `CopilotClient.createSession()` did NOT
+ * expose the slack_* tools ("NO SLACK TOOLS"). Two compounding reasons:
+ *   1. The one-time OAuth had not been completed in the probe environment, so the
+ *      MCP server never connected.
+ *   2. The SDK's `MCPRemoteServerConfig` ({ type, url, headers?, tools }) has no
+ *      OAuth field, so a manual `mcpServers` override cannot supply credentials.
+ * Therefore Task 7 relies on the CLI plugin context: it drives the Slack summary
+ * through an SDK session and degrades gracefully to "_Slack summary unavailable._"
+ * whenever the slack_* tools are absent or the calls fail. Full Slack output
+ * requires the operator to complete the one-time `copilot` Slack OAuth in the
+ * runtime environment where this app runs.
+ *
+ * Permission handler contract (from @github/copilot-sdk types.d.ts):
+ *   PermissionRequestResult.kind is "approved" | "denied-by-rules" | ...
+ *   so onPermissionRequest should return `{ kind: "approved" }` for the read-only
+ *   Slack calls — no `as never` cast needed.
+ */
 import { fetchGitHubActivity, type GitHubActivity } from "./github";
 import { fetchAgentTasks } from "./agentTasks";
 import { upsertBlock } from "./managedBlock";
