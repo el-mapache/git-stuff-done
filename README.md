@@ -8,7 +8,7 @@
 
 ## Features
 
-- **📝 Work Log Editor** — Hybrid markdown editor with inline rendering. Supports drag-and-drop images, `@mention` autocomplete for GitHub org members, and Slack thread previews.
+- **📝 Work Log Editor** — Hybrid markdown editor with inline rendering. Supports drag-and-drop images, `@mention` autocomplete for GitHub org members, Slack thread previews, and turning text into links (select text and paste a URL, or type `[label](url)` markdown syntax directly).
 - **✨ AI Assistant** — Summarize your work logs for standups or weekly reports with built-in prompt templates plus saveable, reusable custom prompts. Also includes **Export Raw Logs** — download all work log entries for any date range as a single combined markdown file.
 - **🔎 Search** — Search across all logs with natural language queries from the dedicated search modal.
 - **✅ TODO List** — Manual TODOs and AI-suggested action items based on your work log.

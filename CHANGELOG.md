@@ -8,6 +8,10 @@ All notable changes to git-stuff-done are documented here.
 
 - **Daily Activity now includes a Mentions section** — a new `### Mentions` section lists Slack messages where others `@mention` you, grouped by channel/DM and thread, reasoning about why you were mentioned (question, review request, FYI, decision needed, etc.). Unlike the existing Slack summary, this checks **every** channel and DM you're in — it's not limited by the Slack Channels allowlist — since you'd want to know about a mention regardless of which channel it landed in. Messages from bot accounts are automatically filtered out.
 
+### Fixed
+
+- **The work log editor now supports turning text into links** — you can select existing text and paste a URL over it to turn that text into a link (keeping your original words as the label), and you can type markdown link syntax like `[label](url)` directly and it will convert into a real link as soon as you finish typing it.
+
 ## 2026-07-06
 
 ### Added
