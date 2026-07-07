@@ -18,7 +18,7 @@
 - **🤖 Agent Sessions** — Browse recent Copilot Cloud Agent sessions with summaries and PR/commit links.
 - **📝 Scratchpad** — Persistent free-form markdown editor that lives across all days, with a built-in linkify action for turning bare GitHub and Slack links into richer markdown links.
 - **🚀 Auto-commit & Push** — Hourly auto-commit of your logs and TODOs to a git repository
-- **📊 Daily Activity** — Auto-generated end-of-day log appended to your work log: a factual list of all your GitHub activity that day (issues/PRs opened, closed, and merged; PR reviews given; comments on issues and PRs; commits pushed — including Copilot agent PRs), plus an AI summary of your public-channel Slack activity grouped by channel and a blended narrative. Runs automatically each evening and on demand via the **Daily activity** button.
+- **📊 Daily Activity** — Auto-generated end-of-day log appended to your work log: a factual list of all your GitHub activity that day (issues/PRs opened, closed, and merged; PR reviews given; comments on issues and PRs; commits pushed — including Copilot agent PRs), a bullet-point summary of Slack messages you sent (grouped by channel and thread, reasoning about the context of each thread, optionally restricted to a **Slack Channels** allowlist in Settings), and a `### Mentions` section summarizing Slack messages where others `@mention` you across **every** channel and DM (bot-authored mentions are filtered out). Any GitHub PR/issue links mentioned in Slack are linkified using the same convention as elsewhere in the app. Runs automatically each evening and on demand via the **Daily activity** button. A standalone copy is also saved to `summaries/` later each evening.
 
 
 ## Prerequisites
@@ -73,7 +73,7 @@
 | `DAILY_ACTIVITY_MODEL`    | `gpt-4.1`                         | Model used to summarize Slack activity for the daily log                |
 | `SLACK_TEAM`              | _(falls back to first `GITHUB_ORG` value)_ | Slack team name passed to `gh slack`, used to search your Slack activity for the daily log |
 
-The evening hour Daily Activity generation runs at is configurable via `dailyActivityHour` in `data/config.json` (default `18`, local Pacific time).
+The evening hour Daily Activity generation runs at is configurable via `dailyActivityHour` in `data/config.json` (default `18`, local Pacific time). A standalone summary file copy is saved later via `dailySummaryFileHour` (default `20`). By default, the Slack summary checks every public channel you posted in; to restrict it to specific channels, add them to the **Slack Channels** allowlist in the Settings panel (or `slackChannels` in `data/config.json`).
 
 
 ## Screenshots

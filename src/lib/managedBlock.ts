@@ -11,6 +11,19 @@ export function endMarker(key: string): string {
 }
 
 /**
+ * Extract the current content of the `key` block from `source` (the text
+ * BETWEEN the markers), or `null` if the block doesn't exist.
+ */
+export function extractBlock(source: string, key: string): string | null {
+  const start = startMarker(key);
+  const end = endMarker(key);
+  const startIdx = source.indexOf(start);
+  const endIdx = source.indexOf(end);
+  if (startIdx === -1 || endIdx === -1 || endIdx <= startIdx) return null;
+  return source.slice(startIdx + start.length, endIdx).trim();
+}
+
+/**
  * Replace the existing `key` block in `source` with `block`, or append it
  * (separated by a blank line) if no block exists yet. `block` is the full
  * content that goes BETWEEN the markers (markers are added here).

@@ -2,6 +2,34 @@
 
 All notable changes to git-stuff-done are documented here.
 
+## 2026-07-07
+
+### Added
+
+- **Daily Activity now includes a Mentions section** — a new `### Mentions` section lists Slack messages where others `@mention` you, grouped by channel/DM and thread, reasoning about why you were mentioned (question, review request, FYI, decision needed, etc.). Unlike the existing Slack summary, this checks **every** channel and DM you're in — it's not limited by the Slack Channels allowlist — since you'd want to know about a mention regardless of which channel it landed in. Messages from bot accounts are automatically filtered out.
+
+## 2026-07-06
+
+### Added
+
+- **Slack Channels allowlist for Daily Activity** — you can now specify exactly which public Slack channels should be checked for the Daily Activity Slack summary, via the new **Slack Channels** list in Settings. Leave it empty (the default) to keep checking every public channel you posted in that day.
+
+## 2026-07-02
+
+### Changed
+
+- **Daily Activity Slack summary is now concrete bullet points, not a vague blurb** — the Slack section now lists a few specific bullet points per channel (what was actually discussed, asked, or decided) instead of a single generic one-liner. The blended GitHub+Slack narrative paragraph at the top has been removed entirely — Daily Activity is now just the GitHub and Slack bullet lists, meant to complement your normal daily log rather than restate it.
+- **Slack summary is now broken out by thread, with reasoned context** — instead of one flat list of bullets per channel, each channel now shows one bullet per conversation thread, linking back to that thread. Bullets try to reason about the purpose behind your messages (question, status update, decision, bug report, etc.) instead of just restating the text, and no longer use emoji.
+- **GitHub PR/issue links mentioned in Slack messages are now linkified** — the same `repo#number: title` linked format used elsewhere in the app (e.g. the work log's linkify action) is now applied to bare GitHub links preserved from your Slack messages.
+
+### Added
+
+- **Daily Activity is now also saved as a standalone summary file each evening** — in addition to the automatic ~6pm update to your work log, a copy of that day's Daily Activity is saved to `summaries/` around 8pm.
+
+### Fixed
+
+- **Automatic Daily Activity generation no longer overwrites an entry that's already there** — if the log already has a Daily Activity block for the day (e.g. from an earlier scheduler run before a server restart), the evening triggers now leave it alone instead of regenerating and clobbering it. The 8pm summary-file save now reuses that existing block rather than re-running GitHub/Slack collection. Manually clicking **Daily activity** still always refreshes it, since that's an explicit request.
+
 ## 2026-07-01
 
 ### Changed

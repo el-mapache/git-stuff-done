@@ -15,6 +15,8 @@ export type AppConfig = {
   ignoredRepos: string[];
   fontSize: string;
   dailyActivityHour: number;
+  dailySummaryFileHour: number;
+  slackChannels: string[];
 };
 
 // --- Paths ---
@@ -151,7 +153,7 @@ function configPath(): string {
   return path.join(dataDir(), "config.json");
 }
 
-const defaultConfig: AppConfig = { ignoredRepos: [], fontSize: '1', dailyActivityHour: 18 };
+const defaultConfig: AppConfig = { ignoredRepos: [], fontSize: '1', dailyActivityHour: 18, dailySummaryFileHour: 20, slackChannels: [] };
 
 export async function readConfig(): Promise<AppConfig> {
   try {

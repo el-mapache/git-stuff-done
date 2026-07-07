@@ -18,8 +18,20 @@
  * channels and to messages whose timestamp actually falls on the requested
  * date in America/Los_Angeles (defense in depth beyond Slack's own `on:`
  * search operator). Only the found messages are then handed to a plain
- * (non-tool-calling) Copilot SDK prompt to write the per-channel summary and
- * blended narrative — the AI's job is summarization only, not searching.
+ * (non-tool-calling) Copilot SDK prompt to write a per-channel bullet-point
+ * summary — the AI's job is summarization only, not searching.
+ *
+ * The Mentions section uses the same `search.messages` mechanism but with
+ * `query=<@USER_ID> on:<date>` (USER_ID resolved once via `auth.test`), and
+ * deliberately does NOT filter by channel privacy or the `slackChannels`
+ * allowlist — mentions are checked across every channel/DM the token can
+ * see (public, private, group DM, 1:1 DM), since a mention anywhere is
+ * actionable regardless of channel. Messages authored by me are excluded
+ * (a mention search can occasionally surface my own messages, e.g. if I
+ * quoted my own handle), and messages authored by bot accounts are excluded
+ * via a `users.info` lookup of the `is_bot` flag (cached per run) — bots
+ * like changelog/notifier accounts mention people constantly and would
+ * otherwise drown out real mentions from humans.
  *
  * Requires the `SLACK_TEAM` env var (falls back to the first comma-separated
  * `GITHUB_ORG` value) and the `gh-slack` extension installed + authenticated
@@ -32,16 +44,34 @@
 import { CopilotClient } from "@github/copilot-sdk";
 import { execFile } from "child_process";
 import { promisify } from "util";
-import { fetchGitHubActivity, type GitHubActivity } from "./github";
+import { fetchGitHubActivity, extractGitHubUrls, fetchLinkInfo, type GitHubActivity, type GitHubLinkInfo } from "./github";
 import { fetchAgentTasks } from "./agentTasks";
-import { upsertBlock } from "./managedBlock";
-import { readLog, writeLog, isValidDate } from "./files";
+import { upsertBlock, extractBlock } from "./managedBlock";
+import { readLog, writeLog, isValidDate, writeSummary, readConfig } from "./files";
 import { commitWorkLog } from "./git";
+import { applyLinkification } from "./copilot";
 import { DAILY_ACTIVITY_KEY } from "./constants";
 
 export { DAILY_ACTIVITY_KEY };
 
 type AgentPR = { number: number; title: string; url: string; repoFullName: string };
+
+/**
+ * Linkify bare GitHub PR/issue URLs the model may have preserved from the
+ * original Slack message text, using the same `repo#number: title` linked
+ * markdown convention as the rest of the app (src/lib/copilot.ts, used for
+ * the work log's own linkify action).
+ */
+async function linkifyGitHubMentions(markdown: string): Promise<string> {
+  const urls = await extractGitHubUrls(markdown);
+  if (urls.length === 0) return markdown;
+  const linkMap = new Map<string, GitHubLinkInfo>();
+  const results = await Promise.all(urls.map((u) => fetchLinkInfo(u)));
+  for (const info of results) {
+    if (info) linkMap.set(info.url, info);
+  }
+  return applyLinkification(markdown, linkMap);
+}
 
 /** Format a UTC ISO-8601 timestamp as YYYY-MM-DD in America/Los_Angeles. */
 function isoToLocalDate(iso: string): string | null {
@@ -143,26 +173,25 @@ export type DailyActivityParts = {
   gh: GitHubActivity;
   agent: AgentPR[];
   slackSection: string; // markdown for the body of the ### Slack section
-  narrative: string;    // markdown paragraph (may be empty)
+  mentionsSection: string; // markdown for the body of the ### Mentions section
 };
 
 /** Assemble the full Daily Activity block body (between the markers). */
 export function assembleSection(date: string, parts: DailyActivityParts): string {
   const githubList = renderGitHubList(parts.gh, parts.agent);
-  const narrative = parts.narrative.trim() || "_Summary unavailable._";
   const slack = parts.slackSection.trim() || "_No public Slack activity._";
+  const mentions = parts.mentionsSection.trim() || "_No mentions found._";
   return [
     `## 📊 Daily Activity — ${date}`,
-    ``,
-    `_Summary_`,
-    ``,
-    narrative,
     ``,
     `### GitHub`,
     githubList,
     ``,
     `### Slack`,
     slack,
+    ``,
+    `### Mentions`,
+    mentions,
   ].join("\n");
 }
 
@@ -186,7 +215,47 @@ function slackTeam(): string {
   return (process.env.GITHUB_ORG ?? "").split(",")[0]?.trim() ?? "";
 }
 
-type SlackMessage = { channel: string; text: string; ts: string; permalink?: string };
+/** Resolve my own Slack user ID (needed to search for `<@id>` mentions), via `auth.test`. Returns `null` on any failure. */
+async function getSlackUserId(team: string): Promise<string | null> {
+  try {
+    const { stdout } = await execFileAsync(
+      "gh",
+      ["slack", "api", "get", "auth.test", "-t", team],
+      { env: { ...process.env, NO_COLOR: "1" }, maxBuffer: 1024 * 1024 },
+    );
+    const data = JSON.parse(stdout) as { ok?: boolean; user_id?: string };
+    if (!data.ok || !data.user_id) return null;
+    return data.user_id;
+  } catch (e) {
+    console.error("[dailyActivity] getSlackUserId failed:", e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
+/**
+ * Whether a Slack user is a bot account, via `users.info`. Used to filter
+ * bot-authored mentions (changelog/notifier bots mention people constantly
+ * and would otherwise drown out real human mentions). Fails open (treats
+ * lookup errors as "not a bot") so a transient API hiccup can't silently
+ * drop a real mention.
+ */
+async function isBotUser(userId: string, team: string): Promise<boolean> {
+  try {
+    const { stdout } = await execFileAsync(
+      "gh",
+      ["slack", "api", "get", "users.info", "-t", team, "-f", `user=${userId}`],
+      { env: { ...process.env, NO_COLOR: "1" }, maxBuffer: 1024 * 1024 },
+    );
+    const data = JSON.parse(stdout) as { ok?: boolean; user?: { is_bot?: boolean } };
+    if (!data.ok) return false;
+    return data.user?.is_bot === true;
+  } catch (e) {
+    console.error("[dailyActivity] isBotUser failed:", e instanceof Error ? e.message : e);
+    return false;
+  }
+}
+
+type SlackMessage = { channel: string; text: string; ts: string; permalink?: string; threadTs?: string; author?: string };
 
 /** Format a Slack epoch `ts` (e.g. "1782855930.731429") as YYYY-MM-DD in America/Los_Angeles. */
 function tsToLocalDate(ts: string): string {
@@ -218,28 +287,35 @@ async function searchSlackMessages(date: string): Promise<SlackMessage[] | null>
     const data = JSON.parse(stdout) as {
       ok?: boolean;
       error?: string;
-      messages?: { matches?: Array<{ channel?: { name?: string; is_private?: boolean }; text?: string; ts?: string; permalink?: string }> };
+      messages?: { matches?: Array<{ channel?: { name?: string; is_private?: boolean }; text?: string; ts?: string; permalink?: string; thread_ts?: string }> };
     };
     if (!data.ok) {
       console.error(`[dailyActivity] Slack search.messages returned ok:false${data.error ? ` (${data.error})` : ""}`);
       return null;
+    }
+    // If the user configured an allowlist of channels to check, restrict to
+    // those (empty list means "check all public channels", the prior default).
+    let allowedChannels: Set<string> | null = null;
+    try {
+      const configured = (await readConfig()).slackChannels;
+      if (configured.length > 0) {
+        allowedChannels = new Set(configured.map((c) => c.toLowerCase()));
+      }
+    } catch {
+      /* treat as no allowlist configured */
     }
     const matches = data.messages?.matches ?? [];
     const messages: SlackMessage[] = [];
     for (const m of matches) {
       if (!m.channel || m.channel.is_private || !m.channel.name || !m.ts) continue;
       if (tsToLocalDate(m.ts) !== date) continue;
-      messages.push({ channel: m.channel.name, text: m.text ?? "", ts: m.ts, permalink: m.permalink });
+      if (allowedChannels && !allowedChannels.has(m.channel.name.toLowerCase())) continue;
+      messages.push({ channel: m.channel.name, text: m.text ?? "", ts: m.ts, permalink: m.permalink, threadTs: m.thread_ts });
     }
     return messages;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    const notInstalled =
-      msg.includes("executable file not found") ||
-      msg.includes("unknown command") ||
-      msg.includes("no extension") ||
-      msg.includes("command not found");
-    if (notInstalled) {
+    if (isGhSlackNotInstalledError(msg)) {
       console.log("[dailyActivity] Slack: gh-slack extension not installed, skipping");
     } else {
       console.error("[dailyActivity] Slack search failed:", msg);
@@ -248,7 +324,97 @@ async function searchSlackMessages(date: string): Promise<SlackMessage[] | null>
   }
 }
 
-/** Render the raw Slack messages, grouped by channel, as facts for the summarizer prompt. */
+/** Whether an error message indicates the `gh-slack` extension isn't installed (vs. some other failure). */
+function isGhSlackNotInstalledError(msg: string): boolean {
+  return (
+    msg.includes("executable file not found") ||
+    msg.includes("unknown command") ||
+    msg.includes("no extension") ||
+    msg.includes("command not found")
+  );
+}
+
+/**
+ * Search Slack for messages that `@mention` me on `date`, via the same
+ * `gh-slack` raw API passthrough. Unlike `searchSlackMessages`, this checks
+ * every channel/DM the token can see (no public-only filter, no
+ * `slackChannels` allowlist — a mention anywhere is actionable) and excludes
+ * messages I authored myself and messages from bot accounts (checked via
+ * `isBotUser`, cached per call since a day's mentions rarely span more than
+ * a handful of distinct authors). Returns `null` if the search itself
+ * couldn't be attempted (same "unavailable" vs. "found nothing" contract as
+ * `searchSlackMessages`).
+ */
+async function searchSlackMentions(date: string, team: string, myUserId: string): Promise<SlackMessage[] | null> {
+  try {
+    const { stdout } = await execFileAsync(
+      "gh",
+      ["slack", "api", "get", "search.messages", "-t", team, "-f", `query=<@${myUserId}> on:${date}`, "-f", "count=100"],
+      { env: { ...process.env, NO_COLOR: "1" }, maxBuffer: 20 * 1024 * 1024 },
+    );
+    const data = JSON.parse(stdout) as {
+      ok?: boolean;
+      error?: string;
+      messages?: {
+        matches?: Array<{
+          channel?: { name?: string; is_im?: boolean };
+          user?: string;
+          username?: string;
+          text?: string;
+          ts?: string;
+          permalink?: string;
+          thread_ts?: string;
+        }>;
+      };
+    };
+    if (!data.ok) {
+      console.error(`[dailyActivity] Slack mentions search.messages returned ok:false${data.error ? ` (${data.error})` : ""}`);
+      return null;
+    }
+    const matches = data.messages?.matches ?? [];
+    const botCache = new Map<string, boolean>();
+    const messages: SlackMessage[] = [];
+    for (const m of matches) {
+      if (!m.channel || !m.ts || !m.user) continue;
+      if (tsToLocalDate(m.ts) !== date) continue;
+      if (m.user === myUserId) continue; // exclude messages I authored myself
+
+      let isBot = botCache.get(m.user);
+      if (isBot === undefined) {
+        isBot = await isBotUser(m.user, team);
+        botCache.set(m.user, isBot);
+      }
+      if (isBot) continue;
+
+      // DM channels have no usable `name` (it's the other user's ID) — label with the sender's own username instead.
+      const channelLabel = m.channel.is_im ? `DM with ${m.username ?? "unknown"}` : (m.channel.name ?? "unknown");
+      messages.push({
+        channel: channelLabel,
+        text: m.text ?? "",
+        ts: m.ts,
+        permalink: m.permalink,
+        threadTs: m.thread_ts,
+        author: m.username,
+      });
+    }
+    return messages;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (isGhSlackNotInstalledError(msg)) {
+      console.log("[dailyActivity] Mentions: gh-slack extension not installed, skipping");
+    } else {
+      console.error("[dailyActivity] Mentions search failed:", msg);
+    }
+    return null;
+  }
+}
+
+/** The thread a message belongs to: its own `ts` if it's a thread root or standalone, else its parent's `thread_ts`. */
+function threadKey(m: SlackMessage): string {
+  return m.threadTs && m.threadTs !== m.ts ? m.threadTs : m.ts;
+}
+
+/** Render the raw Slack messages, grouped by channel then by thread, as facts for the summarizer prompt. */
 function renderSlackFacts(messages: SlackMessage[]): string {
   if (messages.length === 0) return "(no public Slack messages found)";
   const byChannel = new Map<string, SlackMessage[]>();
@@ -260,78 +426,152 @@ function renderSlackFacts(messages: SlackMessage[]): string {
   const lines: string[] = [];
   for (const [channel, msgs] of byChannel) {
     lines.push(`#${channel}:`);
-    for (const m of msgs.slice(0, 20)) {
-      const text = m.text.replace(/\s+/g, " ").trim().slice(0, 300);
-      lines.push(`- ${text || "(no text, e.g. a file/attachment)"}`);
+    const byThread = new Map<string, SlackMessage[]>();
+    for (const m of msgs) {
+      const arr = byThread.get(threadKey(m)) ?? [];
+      arr.push(m);
+      byThread.set(threadKey(m), arr);
+    }
+    let threadNum = 1;
+    for (const [, threadMsgs] of byThread) {
+      const permalink = threadMsgs.find((m) => m.permalink)?.permalink;
+      lines.push(`  Thread ${threadNum}${permalink ? ` (link: ${permalink})` : ""}:`);
+      for (const m of threadMsgs.slice(0, 20)) {
+        const text = m.text.replace(/\s+/g, " ").trim().slice(0, 300);
+        lines.push(`  - ${text || "(no text, e.g. a file/attachment)"}`);
+      }
+      threadNum++;
+    }
+  }
+  return lines.join("\n");
+}
+
+/**
+ * Render the raw @mention messages, grouped by channel/DM then by thread, as
+ * facts for the mentions-summarizer prompt. Unlike `renderSlackFacts`, each
+ * line also names who sent it, since (unlike the "messages I sent" summary)
+ * the author varies per message.
+ */
+function renderMentionFacts(messages: SlackMessage[]): string {
+  if (messages.length === 0) return "(no mentions found)";
+  const byChannel = new Map<string, SlackMessage[]>();
+  for (const m of messages) {
+    const arr = byChannel.get(m.channel) ?? [];
+    arr.push(m);
+    byChannel.set(m.channel, arr);
+  }
+  const lines: string[] = [];
+  for (const [channel, msgs] of byChannel) {
+    lines.push(`${channel.startsWith("DM with") ? channel : `#${channel}`}:`);
+    const byThread = new Map<string, SlackMessage[]>();
+    for (const m of msgs) {
+      const arr = byThread.get(threadKey(m)) ?? [];
+      arr.push(m);
+      byThread.set(threadKey(m), arr);
+    }
+    let threadNum = 1;
+    for (const [, threadMsgs] of byThread) {
+      const permalink = threadMsgs.find((m) => m.permalink)?.permalink;
+      lines.push(`  Thread ${threadNum}${permalink ? ` (link: ${permalink})` : ""}:`);
+      for (const m of threadMsgs.slice(0, 20)) {
+        const text = m.text.replace(/\s+/g, " ").trim().slice(0, 300);
+        lines.push(`  - ${m.author ?? "someone"}: ${text || "(no text, e.g. a file/attachment)"}`);
+      }
+      threadNum++;
     }
   }
   return lines.join("\n");
 }
 
 /** Build the prompt that asks the model to summarize already-gathered Slack facts. */
-function buildSummaryPrompt(date: string, gh: GitHubActivity, agent: AgentPR[], slackFacts: string): string {
-  const ghFacts = renderGitHubList(gh, agent);
-  return `You are generating the end-of-day activity summary for ${date} (timezone America/Los_Angeles).
+function buildSummaryPrompt(date: string, slackFacts: string): string {
+  return `You are generating the Slack portion of the end-of-day activity log for ${date} (timezone America/Los_Angeles).
 
-Below are the public-channel Slack messages I actually sent on ${date} (already collected — do not search for more, just summarize what's given).
+Below are the public-channel Slack messages I actually sent on ${date}, grouped by channel and then by thread (already collected — do not search for more, just summarize what's given).
 
 Produce a response in exactly this format, with no preamble:
 
-NARRATIVE:
-<one short paragraph (2-4 sentences) blending my GitHub work below with my Slack activity into a cohesive summary of my day>
-
 SLACK:
-<for each channel below that has messages, one line: "**#channel-name** — short summary of what I discussed/decided there". If there are no Slack messages below, output exactly "_No public Slack activity._">
+<for each channel below that has messages, a "**#channel-name**" heading line, followed by one top-level bullet ("- ") per thread in that channel. Each thread bullet must:
+- Reason about the likely context and purpose of my messages rather than just restating them verbatim — e.g. was I asking a question, answering one, reporting a bug, proposing a decision, giving a status update? Infer this from the message content and sequence, even though you only see my side of the conversation.
+- Cite concrete specifics (names, PR/issue links, error messages, decisions) rather than vague generalities like "discussed some issues".
+- End with a markdown link to the thread using its "link:" value from the facts below, formatted as "([view thread](<link>))". Omit this if no link was given for that thread.
+- Use plain, professional language. Do not use emoji — this is a factual activity log, not a chat message, so emoji would look out of place even if my original messages used them.
+If a thread has multiple related sub-points, use nested "  - " bullets under the thread bullet instead of cramming everything into one sentence.
+If there are no Slack messages below, output exactly "_No public Slack activity._">
 
-My GitHub activity for the day (reference it in the narrative, do not re-list it under SLACK):
-${ghFacts}
-
-My Slack messages for the day, grouped by channel:
+My Slack messages for the day, grouped by channel and thread:
 ${slackFacts}`;
 }
 
-type SlackResult = { narrative: string; slackSection: string };
+/** Build the prompt that asks the model to summarize already-gathered @mention facts. */
+function buildMentionsSummaryPrompt(date: string, mentionFacts: string): string {
+  return `You are generating the Mentions portion of the end-of-day activity log for ${date} (timezone America/Los_Angeles).
 
-/** Parse the model's NARRATIVE:/SLACK: response into parts. */
+Below are Slack messages where other people @mentioned me on ${date}, across every channel and DM I have access to, grouped by channel/DM and then by thread (already collected — do not search for more, just summarize what's given). Bot-authored mentions have already been filtered out.
+
+Produce a response in exactly this format, with no preamble:
+
+MENTIONS:
+<for each channel/DM below that has messages, a "**#channel-name**" (or "**DM with username**") heading line, followed by one top-level bullet ("- ") per thread. Each thread bullet must:
+- Name who mentioned me and reason about *why* — e.g. are they asking me a direct question, requesting a review/approval, reporting something that needs my attention, looping me in as an FYI, asking me to make a decision? Infer this from the message content, even though you only see the mentioning message(s), not necessarily the full conversation.
+- Cite concrete specifics (names, PR/issue links, error messages, what's actually being asked) rather than vague generalities like "someone mentioned me about something".
+- End with a markdown link to the thread using its "link:" value from the facts below, formatted as "([view thread](<link>))". Omit this if no link was given for that thread.
+- Use plain, professional language. Do not use emoji.
+If a thread has multiple related sub-points, use nested "  - " bullets under the thread bullet instead of cramming everything into one sentence.
+If there are no mentions below, output exactly "_No mentions found._">
+
+Mentions for the day, grouped by channel/DM and thread:
+${mentionFacts}`;
+}
+
+type SlackResult = { slackSection: string };
+type MentionsResult = { mentionsSection: string };
+
+/** Parse the model's SLACK: response into parts. */
 export function parseSlackResponse(text: string): SlackResult {
   const slackIdx = text.indexOf("SLACK:");
-  const narrIdx = text.indexOf("NARRATIVE:");
-  if (narrIdx === -1 || slackIdx === -1 || slackIdx < narrIdx) {
-    return { narrative: "", slackSection: "_Slack summary unavailable._" };
+  if (slackIdx === -1) {
+    return { slackSection: "_Slack summary unavailable._" };
   }
-  const narrative = text.slice(narrIdx + "NARRATIVE:".length, slackIdx).trim();
   const slackSection = text.slice(slackIdx + "SLACK:".length).trim();
   return {
-    narrative,
     slackSection: slackSection || "_No public Slack activity._",
   };
 }
 
-/**
- * Post-process the model's per-channel Slack section: insert a blank line
- * between channel entries (the model reliably keeps them on consecutive
- * lines despite prompt instructions) and append a link to that channel's
- * first message, so each entry is scannable and clickable back to context.
- */
-function formatSlackSection(slackSection: string, messages: SlackMessage[]): string {
-  if (!slackSection || slackSection.startsWith("_")) return slackSection; // fallback / "no activity" text
-  const firstPermalinkByChannel = new Map<string, string>();
-  for (const m of messages) {
-    if (m.permalink && !firstPermalinkByChannel.has(m.channel)) {
-      firstPermalinkByChannel.set(m.channel, m.permalink);
-    }
+/** Parse the model's MENTIONS: response into parts. */
+export function parseMentionsResponse(text: string): MentionsResult {
+  const idx = text.indexOf("MENTIONS:");
+  if (idx === -1) {
+    return { mentionsSection: "_Mentions summary unavailable._" };
   }
-  const lines = slackSection
+  const mentionsSection = text.slice(idx + "MENTIONS:".length).trim();
+  return {
+    mentionsSection: mentionsSection || "_No mentions found._",
+  };
+}
+
+/**
+ * Post-process a model-generated per-channel bullet section (Slack or
+ * Mentions): insert a blank line before each channel heading (the model
+ * reliably keeps channel groups on consecutive lines despite prompt
+ * instructions), then linkify any bare GitHub PR/issue URLs the model
+ * preserved from the original messages using the same conventions as the
+ * rest of the app (see src/lib/copilot.ts).
+ */
+async function formatBulletSection(section: string): Promise<string> {
+  if (!section || section.startsWith("_")) return section; // fallback / "no activity" text
+  const lines = section
     .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-  const rendered = lines.map((line) => {
-    const match = line.match(/^\*\*#([^*]+)\*\*/);
-    if (!match) return line;
-    const link = firstPermalinkByChannel.get(match[1]);
-    return link ? `${line} ([view](${link}))` : line;
-  });
-  return rendered.join("\n\n");
+    .map((line) => line.trimEnd())
+    .filter((line) => line.trim().length > 0);
+  const out: string[] = [];
+  for (const line of lines) {
+    if (/^\*\*#?[^*]+\*\*/.test(line) && out.length > 0) out.push(""); // blank line before each new channel/DM heading
+    out.push(line);
+  }
+  return linkifyGitHubMentions(out.join("\n"));
 }
 
 /**
@@ -339,10 +579,10 @@ function formatSlackSection(slackSection: string, messages: SlackMessage[]): str
  * Copilot with a plain (non-tool-calling) prompt to produce the narrative +
  * per-channel Slack summary. Returns a graceful fallback on any failure.
  */
-async function fetchSlackSummary(date: string, gh: GitHubActivity, agent: AgentPR[]): Promise<SlackResult> {
+async function fetchSlackSummary(date: string): Promise<SlackResult> {
   const messages = await searchSlackMessages(date);
   if (messages === null) {
-    return { narrative: "", slackSection: "_Slack summary unavailable._" };
+    return { slackSection: "_Slack summary unavailable._" };
   }
 
   const client = new CopilotClient();
@@ -356,15 +596,69 @@ async function fetchSlackSummary(date: string, gh: GitHubActivity, agent: AgentP
       "createSession",
     );
     const res = await session.sendAndWait(
-      { prompt: buildSummaryPrompt(date, gh, agent, renderSlackFacts(messages)) },
+      { prompt: buildSummaryPrompt(date, renderSlackFacts(messages)) },
       120_000,
     );
     const content = res?.data?.content ?? "";
     const parsed = parseSlackResponse(content);
-    return { narrative: parsed.narrative, slackSection: formatSlackSection(parsed.slackSection, messages) };
+    return { slackSection: await formatBulletSection(parsed.slackSection) };
   } catch (e) {
     console.error("[dailyActivity] fetchSlackSummary failed:", e);
-    return { narrative: "", slackSection: "_Slack summary unavailable._" };
+    return { slackSection: "_Slack summary unavailable._" };
+  } finally {
+    try {
+      await withTimeout(client.stop(), 10_000, "client.stop");
+    } catch {
+      try {
+        await client.forceStop();
+      } catch (e) {
+        console.error("[dailyActivity] forceStop failed:", e);
+      }
+    }
+  }
+}
+
+/**
+ * Resolve my Slack user ID, search for @mentions of me across every
+ * channel/DM on `date`, then call Copilot with a plain (non-tool-calling)
+ * prompt to produce the per-channel/DM Mentions summary. Returns a graceful
+ * fallback on any failure — mirrors `fetchSlackSummary`.
+ */
+async function fetchMentionsSummary(date: string): Promise<MentionsResult> {
+  const team = slackTeam();
+  if (!team) {
+    console.log("[dailyActivity] Mentions: no SLACK_TEAM/GITHUB_ORG configured, skipping");
+    return { mentionsSection: "_Mentions summary unavailable._" };
+  }
+  const myUserId = await getSlackUserId(team);
+  if (!myUserId) {
+    return { mentionsSection: "_Mentions summary unavailable._" };
+  }
+  const messages = await searchSlackMentions(date, team, myUserId);
+  if (messages === null) {
+    return { mentionsSection: "_Mentions summary unavailable._" };
+  }
+
+  const client = new CopilotClient();
+  try {
+    const session = await withTimeout(
+      client.createSession({
+        model: SLACK_MODEL,
+        onPermissionRequest: async () => ({ kind: "approved" as const }),
+      }),
+      30_000,
+      "createSession",
+    );
+    const res = await session.sendAndWait(
+      { prompt: buildMentionsSummaryPrompt(date, renderMentionFacts(messages)) },
+      120_000,
+    );
+    const content = res?.data?.content ?? "";
+    const parsed = parseMentionsResponse(content);
+    return { mentionsSection: await formatBulletSection(parsed.mentionsSection) };
+  } catch (e) {
+    console.error("[dailyActivity] fetchMentionsSummary failed:", e);
+    return { mentionsSection: "_Mentions summary unavailable._" };
   } finally {
     try {
       await withTimeout(client.stop(), 10_000, "client.stop");
@@ -387,12 +681,17 @@ async function generateDailyActivityImpl(date: string): Promise<string> {
   const gh = await fetchGitHubActivity(date); // throws on hard failure
   const agent = await fetchAgentActivity(date);
 
-  const slack = await fetchSlackSummary(date, gh, agent);
+  // Slack summary and Mentions summary are independent (different searches,
+  // different prompts) so they can run concurrently.
+  const [slack, mentions] = await Promise.all([
+    fetchSlackSummary(date),
+    fetchMentionsSummary(date),
+  ]);
   const parts: DailyActivityParts = {
     gh,
     agent,
     slackSection: slack.slackSection,
-    narrative: slack.narrative,
+    mentionsSection: mentions.mentionsSection,
   };
 
   const section = assembleSection(date, parts);
@@ -422,5 +721,36 @@ export async function generateDailyActivity(date: string): Promise<string> {
   });
   inFlightByDate.set(date, promise);
   return promise;
+}
+
+/**
+ * Whether `date`'s log already has a Daily Activity block. Used to stop
+ * automatic (scheduler-driven) generation from clobbering an entry that's
+ * already there — e.g. after a server restart resets the scheduler's
+ * in-memory "already generated today" guard. Manual regeneration (the
+ * button / API route calling `generateDailyActivity` directly) intentionally
+ * bypasses this check, since that's an explicit user request to refresh it.
+ */
+export async function dailyActivityBlockExists(date: string): Promise<boolean> {
+  if (!isValidDate(date)) return false;
+  const existing = await readLog(date);
+  return extractBlock(existing, DAILY_ACTIVITY_KEY) !== null;
+}
+
+/**
+ * Save a standalone copy of `date`'s Daily Activity under
+ * `summaries/YYYY-MM-DD-daily-activity.md`, so the evening snapshot persists
+ * independently of later edits to the log's managed block. Reuses the
+ * block already in the log if one exists (never regenerates/clobbers an
+ * existing entry); only generates a fresh one if the log doesn't have it yet
+ * (e.g. the earlier scheduler trigger failed or was skipped).
+ */
+export async function generateAndSaveDailyActivitySummary(date: string): Promise<string> {
+  if (!isValidDate(date)) throw new Error("Invalid date");
+  const existingLog = await readLog(date);
+  const section = extractBlock(existingLog, DAILY_ACTIVITY_KEY) ?? (await generateDailyActivity(date));
+  const filename = await writeSummary(`${date}-daily-activity.md`, section);
+  commitWorkLog(`docs(activity): save daily activity summary ${filename}`);
+  return filename;
 }
 

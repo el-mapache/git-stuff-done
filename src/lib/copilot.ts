@@ -6,7 +6,7 @@ const MODEL = 'gpt-4.1';
 /**
  * Simple fallback: replace bare GitHub URLs with markdown links using fetched titles.
  */
-function applyLinkification(
+export function applyLinkification(
   markdown: string,
   linkMap: Map<string, GitHubLinkInfo>,
 ): string {

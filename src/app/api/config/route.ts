@@ -18,6 +18,14 @@ export async function PUT(request: NextRequest) {
       .slice(0, 100);
   }
 
+  if (Array.isArray(body.slackChannels)) {
+    config.slackChannels = body.slackChannels
+      .filter((c: unknown) => typeof c === "string")
+      .map((c: string) => c.trim().replace(/^#/, "").slice(0, 200))
+      .filter(Boolean)
+      .slice(0, 100);
+  }
+
   if (typeof body.fontSize === "string" && ["0.875", "1", "1.125", "1.25"].includes(body.fontSize)) {
     config.fontSize = body.fontSize;
   }
