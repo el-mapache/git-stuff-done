@@ -84,3 +84,104 @@ async function resolveUserName(ctx: EnrichmentContext, userId: string, team: str
     return userId;
   }
 }
+
+type RawSlackMessage = { user?: string; text?: string; ts?: string; thread_ts?: string };
+
+/** Call `conversations.replies` for one channel/ts pair. Returns the raw `messages` array, or `null` on failure or if the enrichment budget is exhausted. Consumes one unit of `ctx.budget`. */
+async function callConversationsReplies(
+  ctx: EnrichmentContext,
+  team: string,
+  channelId: string,
+  ts: string,
+): Promise<RawSlackMessage[] | null> {
+  if (ctx.budget <= 0) return null;
+  ctx.budget--;
+  try {
+    const { stdout } = await execFileAsync(
+      "gh",
+      ["slack", "api", "get", "conversations.replies", "-t", team, "-f", `channel=${channelId}`, "-f", `ts=${ts}`],
+      { env: { ...process.env, NO_COLOR: "1" }, maxBuffer: 5 * 1024 * 1024 },
+    );
+    const data = JSON.parse(stdout) as { ok?: boolean; messages?: RawSlackMessage[] };
+    if (!data.ok || !data.messages) return null;
+    return data.messages;
+  } catch (e) {
+    console.error("[slackThreadContext] conversations.replies failed:", e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
+/** Call `conversations.history` for one channel, bounded before (`latest`) or after (`oldest`) a given `ts`. Returns the raw `messages` array, or `null` on failure or if the budget is exhausted. Consumes one unit of `ctx.budget`. */
+async function callConversationsHistory(
+  ctx: EnrichmentContext,
+  team: string,
+  channelId: string,
+  bound: { latest: string } | { oldest: string },
+  limit: number,
+): Promise<RawSlackMessage[] | null> {
+  if (ctx.budget <= 0) return null;
+  ctx.budget--;
+  try {
+    const boundField = "latest" in bound ? `latest=${bound.latest}` : `oldest=${bound.oldest}`;
+    const { stdout } = await execFileAsync(
+      "gh",
+      [
+        "slack", "api", "get", "conversations.history", "-t", team,
+        "-f", `channel=${channelId}`, "-f", boundField, "-f", `limit=${limit}`, "-f", "inclusive=false",
+      ],
+      { env: { ...process.env, NO_COLOR: "1" }, maxBuffer: 5 * 1024 * 1024 },
+    );
+    const data = JSON.parse(stdout) as { ok?: boolean; messages?: RawSlackMessage[] };
+    if (!data.ok || !data.messages) return null;
+    return data.messages;
+  } catch (e) {
+    console.error("[slackThreadContext] conversations.history failed:", e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
+/** Convert raw Slack messages (any order) into chronological, name-resolved, cleaned `ContextLine`s. */
+async function toContextLines(
+  ctx: EnrichmentContext,
+  raw: RawSlackMessage[],
+  team: string,
+  myUserId: string,
+): Promise<ContextLine[]> {
+  const sorted = [...raw].sort((a, b) => parseFloat(a.ts ?? "0") - parseFloat(b.ts ?? "0"));
+  const lines: ContextLine[] = [];
+  for (const m of sorted) {
+    if (!m.ts || !m.user) continue;
+    const isMe = m.user === myUserId;
+    const author = isMe ? "You" : await resolveUserName(ctx, m.user, team);
+    lines.push({ author, text: cleanSlackText(m.text ?? ""), ts: m.ts, isMe });
+  }
+  return lines;
+}
+
+/** Cap a resolved thread to `MAX_THREAD_MESSAGES` (root + most recent replies), resolve names, and populate the dedup cache for every message `ts` it contains so later matches in the same thread are skipped. */
+async function finalizeThread(
+  ctx: EnrichmentContext,
+  raw: RawSlackMessage[],
+  rootTs: string,
+  team: string,
+  myUserId: string,
+): Promise<MessageContextResult> {
+  const sorted = [...raw].sort((a, b) => parseFloat(a.ts ?? "0") - parseFloat(b.ts ?? "0"));
+  let capped = sorted;
+  let omitted = 0;
+  if (sorted.length > MAX_THREAD_MESSAGES && sorted.length > 0) {
+    const root = sorted[0];
+    const recent = sorted.slice(-(MAX_THREAD_MESSAGES - 1));
+    capped = [root, ...recent];
+    omitted = sorted.length - capped.length;
+  }
+  const lines = await toContextLines(ctx, capped, team, myUserId);
+  if (omitted > 0) {
+    lines.splice(1, 0, { author: "", text: `…(${omitted} earlier replies omitted)…`, ts: rootTs, isMe: false });
+  }
+  for (const m of sorted) {
+    if (m.ts) ctx.resolvedTs.set(m.ts, rootTs);
+  }
+  ctx.resolvedGroups.set(rootTs, lines);
+  return { threadRootTs: rootTs, isNewGroup: true, lines };
+}
