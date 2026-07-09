@@ -4,6 +4,10 @@ All notable changes to git-stuff-done are documented here.
 
 ## 2026-07-09
 
+### Fixed
+
+- **AI work-log summaries now show real titles for linked GitHub issues/PRs** — instead of a bare URL, referenced issues and pull requests are now rendered as proper links with their actual title, matching the linkification already used elsewhere in the app.
+
 ### Changed
 
 - **Slack activity summaries now include real conversation context** — instead of summarizing just the isolated message you sent, the Daily Activity Slack summary now pulls in the rest of the thread (or a few nearby messages for standalone ones) so the AI can reason about what was actually being discussed, not just guess from your side of the conversation alone.
