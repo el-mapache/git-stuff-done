@@ -17,9 +17,22 @@
  * privacy flag, and timestamp. Results are filtered to `is_private === false`
  * channels and to messages whose timestamp actually falls on the requested
  * date in America/Los_Angeles (defense in depth beyond Slack's own `on:`
- * search operator). Only the found messages are then handed to a plain
- * (non-tool-calling) Copilot SDK prompt to write a per-channel bullet-point
- * summary — the AI's job is summarization only, not searching.
+ * search operator).
+ *
+ * Each matched message is then enriched with its real surrounding
+ * conversation (see src/lib/slackThreadContext.ts) rather than being
+ * summarized in isolation: a `conversations.replies` call detects whether
+ * it's part of a real thread (fetching the full thread, capped at 20
+ * messages) or standalone (fetching a small before/after window of channel
+ * history via `conversations.history` instead). This is capped at 150
+ * enrichment API calls per run and gracefully falls back to the old
+ * isolated-line rendering for anything that fails or exceeds the cap. Slack
+ * mrkdwn link syntax (`<url|label>`, `<url>`) is normalized to bare URLs
+ * wherever Slack text is captured, so the app's linkification helpers can
+ * find and format GitHub PR/issue links correctly. Only the resulting
+ * per-thread transcripts are then handed to a plain (non-tool-calling)
+ * Copilot SDK prompt to write a per-channel bullet-point summary — the AI's
+ * job is summarization only, not searching.
  *
  * The Mentions section uses the same `search.messages` mechanism but with
  * `query=<@USER_ID> on:<date>` (USER_ID resolved once via `auth.test`), and
@@ -45,7 +58,7 @@ import { CopilotClient } from "@github/copilot-sdk";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { fetchGitHubActivity, extractGitHubUrls, fetchLinkInfo, type GitHubActivity, type GitHubLinkInfo } from "./github";
-import { cleanSlackText } from "./slackThreadContext";
+import { cleanSlackText, createEnrichmentContext, getMessageContext } from "./slackThreadContext";
 import { fetchAgentTasks } from "./agentTasks";
 import { upsertBlock, extractBlock } from "./managedBlock";
 import { readLog, writeLog, isValidDate, writeSummary, readConfig } from "./files";
@@ -491,24 +504,92 @@ function renderMentionFacts(messages: SlackMessage[]): string {
   return lines.join("\n");
 }
 
-/** Build the prompt that asks the model to summarize already-gathered Slack facts. */
+/**
+ * Render the raw Slack messages I sent, grouped by channel, using real
+ * thread/context enrichment where available (see slackThreadContext.ts):
+ * each thread is rendered as a labeled transcript ("You:" for my own lines,
+ * the other participant's name otherwise) instead of just my isolated
+ * line(s). Messages whose enrichment failed or exceeded the per-run call
+ * budget fall back to being rendered exactly like `renderSlackFacts` (my
+ * own line only, no author label), grouped by the legacy `threadKey()`
+ * heuristic. Messages that turn out to belong to an already-rendered
+ * thread (e.g. two of my own messages landed in the same thread) are
+ * skipped — they're already represented in that thread's transcript.
+ */
+async function renderEnrichedSlackFacts(messages: SlackMessage[], team: string, myUserId: string): Promise<string> {
+  if (messages.length === 0) return "(no public Slack messages found)";
+  const byChannel = new Map<string, SlackMessage[]>();
+  for (const m of messages) {
+    const arr = byChannel.get(m.channel) ?? [];
+    arr.push(m);
+    byChannel.set(m.channel, arr);
+  }
+
+  const ctx = createEnrichmentContext();
+  const lines: string[] = [];
+  for (const [channel, msgs] of byChannel) {
+    lines.push(`#${channel}:`);
+    let threadNum = 1;
+    const fallback: SlackMessage[] = [];
+
+    for (const m of msgs) {
+      if (!m.channelId) {
+        fallback.push(m);
+        continue;
+      }
+      const result = await getMessageContext(ctx, team, m.channelId, m.ts, myUserId);
+      if (result === null) {
+        fallback.push(m);
+        continue;
+      }
+      if (!result.isNewGroup) continue; // already rendered as part of an earlier message's thread
+
+      lines.push(`  Thread ${threadNum}${m.permalink ? ` (link: ${m.permalink})` : ""}:`);
+      for (const line of result.lines) {
+        const text = line.text.replace(/\s+/g, " ").trim().slice(0, 300);
+        const prefix = line.author ? `${line.author}: ` : "";
+        lines.push(`  - ${prefix}${text || "(no text, e.g. a file/attachment)"}`);
+      }
+      threadNum++;
+    }
+
+    // Fallback: messages enrichment couldn't resolve, grouped and rendered
+    // exactly like today's plain behavior (own line only, no author label).
+    const byThread = new Map<string, SlackMessage[]>();
+    for (const m of fallback) {
+      const arr = byThread.get(threadKey(m)) ?? [];
+      arr.push(m);
+      byThread.set(threadKey(m), arr);
+    }
+    for (const [, threadMsgs] of byThread) {
+      const permalink = threadMsgs.find((m) => m.permalink)?.permalink;
+      lines.push(`  Thread ${threadNum}${permalink ? ` (link: ${permalink})` : ""}:`);
+      for (const m of threadMsgs.slice(0, 20)) {
+        const text = m.text.replace(/\s+/g, " ").trim().slice(0, 300);
+        lines.push(`  - ${text || "(no text, e.g. a file/attachment)"}`);
+      }
+      threadNum++;
+    }
+  }
+  return lines.join("\n");
+}
 function buildSummaryPrompt(date: string, slackFacts: string): string {
   return `You are generating the Slack portion of the end-of-day activity log for ${date} (timezone America/Los_Angeles).
 
-Below are the public-channel Slack messages I actually sent on ${date}, grouped by channel and then by thread (already collected — do not search for more, just summarize what's given).
+Below are Slack conversations from ${date} involving messages I sent, grouped by channel and then by thread (already collected — do not search for more, just summarize what's given). Where available, each thread shows the full surrounding conversation, not just my own lines: my own messages are labeled "You:", other participants' messages are labeled with their name and are given only as context to help you understand what I was responding to or discussing — do not summarize their activity as if it were mine. Some threads may only show my own message(s) with no other labels, if fuller context wasn't available; treat those exactly as you would a single isolated message.
 
 Produce a response in exactly this format, with no preamble:
 
 SLACK:
 <for each channel below that has messages, a "**#channel-name**" heading line, followed by one top-level bullet ("- ") per thread in that channel. Each thread bullet must:
-- Reason about the likely context and purpose of my messages rather than just restating them verbatim — e.g. was I asking a question, answering one, reporting a bug, proposing a decision, giving a status update? Infer this from the message content and sequence, even though you only see my side of the conversation.
+- Summarize and reason about what I ("You") said or did in the thread — e.g. was I asking a question, answering one, reporting a bug, proposing a decision, giving a status update? Use any other participants' messages only to understand the context; do not summarize their activity as if it were mine.
 - Cite concrete specifics (names, PR/issue links, error messages, decisions) rather than vague generalities like "discussed some issues".
 - End with a markdown link to the thread using its "link:" value from the facts below, formatted as "([view thread](<link>))". Omit this if no link was given for that thread.
 - Use plain, professional language. Do not use emoji — this is a factual activity log, not a chat message, so emoji would look out of place even if my original messages used them.
 If a thread has multiple related sub-points, use nested "  - " bullets under the thread bullet instead of cramming everything into one sentence.
 If there are no Slack messages below, output exactly "_No public Slack activity._">
 
-My Slack messages for the day, grouped by channel and thread:
+Slack conversations for the day, grouped by channel and thread:
 ${slackFacts}`;
 }
 
@@ -593,6 +674,11 @@ async function fetchSlackSummary(date: string): Promise<SlackResult> {
     return { slackSection: "_Slack summary unavailable._" };
   }
 
+  const team = slackTeam();
+  const myUserId = team ? await getSlackUserId(team) : null;
+  const slackFacts =
+    team && myUserId ? await renderEnrichedSlackFacts(messages, team, myUserId) : renderSlackFacts(messages);
+
   const client = new CopilotClient();
   try {
     const session = await withTimeout(
@@ -604,7 +690,7 @@ async function fetchSlackSummary(date: string): Promise<SlackResult> {
       "createSession",
     );
     const res = await session.sendAndWait(
-      { prompt: buildSummaryPrompt(date, renderSlackFacts(messages)) },
+      { prompt: buildSummaryPrompt(date, slackFacts) },
       120_000,
     );
     const content = res?.data?.content ?? "";
