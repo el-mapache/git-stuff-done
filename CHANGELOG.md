@@ -2,6 +2,16 @@
 
 All notable changes to git-stuff-done are documented here.
 
+## 2026-07-09
+
+### Changed
+
+- **Slack activity summaries now include real conversation context** — instead of summarizing just the isolated message you sent, the Daily Activity Slack summary now pulls in the rest of the thread (or a few nearby messages for standalone ones) so the AI can reason about what was actually being discussed, not just guess from your side of the conversation alone.
+
+### Fixed
+
+- **Slack messages containing links no longer show broken/garbled formatting** in the activity log.
+
 ## 2026-07-07
 
 ### Added
