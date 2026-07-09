@@ -185,3 +185,61 @@ async function finalizeThread(
   ctx.resolvedGroups.set(rootTs, lines);
   return { threadRootTs: rootTs, isNewGroup: true, lines };
 }
+
+/**
+ * Resolve context (the full thread, or a small before/after window) for one
+ * matched message.
+ *
+ * Returns `null` if enrichment couldn't be attempted (API failure or the
+ * per-run call budget is exhausted) — the caller should fall back to
+ * rendering today's plain single-line fact for just this message.
+ *
+ * Returns `{ isNewGroup: false, ... }` if this message's thread was already
+ * fully resolved by an earlier call in this run (e.g. two of my own
+ * messages landed in the same thread) — the caller should skip rendering a
+ * duplicate bullet for it, since it's already represented in the earlier
+ * result's `lines`.
+ */
+export async function getMessageContext(
+  ctx: EnrichmentContext,
+  team: string,
+  channelId: string,
+  ts: string,
+  myUserId: string,
+): Promise<MessageContextResult | null> {
+  const knownRoot = ctx.resolvedTs.get(ts);
+  if (knownRoot) {
+    return { threadRootTs: knownRoot, isNewGroup: false, lines: ctx.resolvedGroups.get(knownRoot) ?? [] };
+  }
+
+  const detected = await callConversationsReplies(ctx, team, channelId, ts);
+  if (detected === null) return null;
+
+  if (detected.length > 1) {
+    // `ts` was itself the thread root — this response IS the full thread already.
+    return finalizeThread(ctx, detected, ts, team, myUserId);
+  }
+
+  const single = detected[0];
+  const threadTs = single?.thread_ts;
+  if (!threadTs || threadTs === ts) {
+    // Standalone message (not part of any thread): fetch a small window of
+    // surrounding channel history for context instead.
+    const [before, after] = await Promise.all([
+      callConversationsHistory(ctx, team, channelId, { latest: ts }, 3),
+      callConversationsHistory(ctx, team, channelId, { oldest: ts }, 3),
+    ]);
+    if (before === null || after === null) return null;
+    const raw = [...before, ...(single ? [single] : []), ...after];
+    const lines = await toContextLines(ctx, raw, team, myUserId);
+    ctx.resolvedTs.set(ts, ts);
+    ctx.resolvedGroups.set(ts, lines);
+    return { threadRootTs: ts, isNewGroup: true, lines };
+  }
+
+  // A reply to a real thread whose root wasn't returned directly — fetch the
+  // whole thread from its actual root.
+  const full = await callConversationsReplies(ctx, team, channelId, threadTs);
+  if (full === null) return null;
+  return finalizeThread(ctx, full, threadTs, team, myUserId);
+}
