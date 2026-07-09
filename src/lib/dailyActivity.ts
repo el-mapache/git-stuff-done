@@ -45,6 +45,7 @@ import { CopilotClient } from "@github/copilot-sdk";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { fetchGitHubActivity, extractGitHubUrls, fetchLinkInfo, type GitHubActivity, type GitHubLinkInfo } from "./github";
+import { cleanSlackText } from "./slackThreadContext";
 import { fetchAgentTasks } from "./agentTasks";
 import { upsertBlock, extractBlock } from "./managedBlock";
 import { readLog, writeLog, isValidDate, writeSummary, readConfig } from "./files";
@@ -255,7 +256,7 @@ async function isBotUser(userId: string, team: string): Promise<boolean> {
   }
 }
 
-type SlackMessage = { channel: string; text: string; ts: string; permalink?: string; threadTs?: string; author?: string };
+type SlackMessage = { channel: string; channelId?: string; text: string; ts: string; permalink?: string; threadTs?: string; author?: string };
 
 /** Format a Slack epoch `ts` (e.g. "1782855930.731429") as YYYY-MM-DD in America/Los_Angeles. */
 function tsToLocalDate(ts: string): string {
@@ -287,7 +288,7 @@ async function searchSlackMessages(date: string): Promise<SlackMessage[] | null>
     const data = JSON.parse(stdout) as {
       ok?: boolean;
       error?: string;
-      messages?: { matches?: Array<{ channel?: { name?: string; is_private?: boolean }; text?: string; ts?: string; permalink?: string; thread_ts?: string }> };
+      messages?: { matches?: Array<{ channel?: { id?: string; name?: string; is_private?: boolean }; text?: string; ts?: string; permalink?: string; thread_ts?: string }> };
     };
     if (!data.ok) {
       console.error(`[dailyActivity] Slack search.messages returned ok:false${data.error ? ` (${data.error})` : ""}`);
@@ -310,7 +311,14 @@ async function searchSlackMessages(date: string): Promise<SlackMessage[] | null>
       if (!m.channel || m.channel.is_private || !m.channel.name || !m.ts) continue;
       if (tsToLocalDate(m.ts) !== date) continue;
       if (allowedChannels && !allowedChannels.has(m.channel.name.toLowerCase())) continue;
-      messages.push({ channel: m.channel.name, text: m.text ?? "", ts: m.ts, permalink: m.permalink, threadTs: m.thread_ts });
+      messages.push({
+        channel: m.channel.name,
+        channelId: m.channel.id,
+        text: cleanSlackText(m.text ?? ""),
+        ts: m.ts,
+        permalink: m.permalink,
+        threadTs: m.thread_ts,
+      });
     }
     return messages;
   } catch (e) {
@@ -390,7 +398,7 @@ async function searchSlackMentions(date: string, team: string, myUserId: string)
       const channelLabel = m.channel.is_im ? `DM with ${m.username ?? "unknown"}` : (m.channel.name ?? "unknown");
       messages.push({
         channel: channelLabel,
-        text: m.text ?? "",
+        text: cleanSlackText(m.text ?? ""),
         ts: m.ts,
         permalink: m.permalink,
         threadTs: m.thread_ts,
