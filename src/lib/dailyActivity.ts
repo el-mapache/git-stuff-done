@@ -123,24 +123,24 @@ function renderGitHubList(gh: GitHubActivity, agent: AgentPR[]): string {
   };
 
   for (const pr of gh.prsOpened) {
-    lines.push(`- Opened PR [${pr.repoFullName}#${pr.number}](${pr.url}): ${pr.title}`);
+    lines.push(`- Opened PR [${pr.title} (${pr.repoFullName}#${pr.number})](${pr.url})`);
   }
   for (const pr of gh.prsMerged) {
-    lines.push(`- Merged PR [${pr.repoFullName}#${pr.number}](${pr.url}): ${pr.title}`);
+    lines.push(`- Merged PR [${pr.title} (${pr.repoFullName}#${pr.number})](${pr.url})`);
   }
   for (const pr of gh.prsClosedUnmerged) {
-    lines.push(`- Closed PR [${pr.repoFullName}#${pr.number}](${pr.url}): ${pr.title}`);
+    lines.push(`- Closed PR [${pr.title} (${pr.repoFullName}#${pr.number})](${pr.url})`);
   }
   for (const issue of gh.issuesOpened) {
-    lines.push(`- Created issue [${issue.repoFullName}#${issue.number}](${issue.url}): ${issue.title}`);
+    lines.push(`- Created issue [${issue.title} (${issue.repoFullName}#${issue.number})](${issue.url})`);
   }
   for (const issue of gh.issuesClosed) {
-    lines.push(`- Closed issue [${issue.repoFullName}#${issue.number}](${issue.url}): ${issue.title}`);
+    lines.push(`- Closed issue [${issue.title} (${issue.repoFullName}#${issue.number})](${issue.url})`);
   }
   for (const review of gh.reviews) {
     const label = reviewStateLabel[review.state] ?? "Reviewed";
     const snippet = review.body ? `: ${review.body}` : "";
-    lines.push(`- ${label} PR [${review.repoFullName}#${review.number}](${review.url}) (${review.title})${snippet}`);
+    lines.push(`- ${label} PR [${review.title} (${review.repoFullName}#${review.number})](${review.url})${snippet}`);
   }
 
   // Group comments by repo, listing each comment as a sub-bullet — mirrors the commit grouping below.
@@ -154,7 +154,7 @@ function renderGitHubList(gh: GitHubActivity, agent: AgentPR[]): string {
     lines.push(`- ${cs.length} comment${cs.length === 1 ? "" : "s"} in \`${repo}\`:`);
     for (const c of cs) {
       const snippet = c.body ? `: ${c.body}` : "";
-      lines.push(`  - [${c.targetType === "pr" ? "PR" : "issue"} #${c.number}](${c.url})${snippet}`);
+      lines.push(`  - [${c.title} (${c.repoFullName}#${c.number})](${c.url})${snippet}`);
     }
   }
 
@@ -174,7 +174,7 @@ function renderGitHubList(gh: GitHubActivity, agent: AgentPR[]): string {
   const seenPRs = new Set(gh.prsOpened.map((p) => `${p.repoFullName}#${p.number}`));
   for (const pr of agent) {
     if (seenPRs.has(`${pr.repoFullName}#${pr.number}`)) continue;
-    lines.push(`- Copilot agent: PR [${pr.repoFullName}#${pr.number}](${pr.url}): ${pr.title}`);
+    lines.push(`- Copilot agent: PR [${pr.title} (${pr.repoFullName}#${pr.number})](${pr.url})`);
   }
   const body = lines.length > 0 ? lines.join("\n") : "_No GitHub activity._";
   const warning = gh.truncated
