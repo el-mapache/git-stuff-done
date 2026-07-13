@@ -98,15 +98,24 @@ function isoToLocalDate(iso: string): string | null {
 async function fetchAgentActivity(date: string): Promise<AgentPR[]> {
   try {
     const raw = await fetchAgentTasks(30);
-    return raw
+    const tasks = raw
       .filter((t) => t.pullRequestNumber !== null && t.repository)
-      .filter((t) => (t.createdAt && isoToLocalDate(t.createdAt) === date) || (t.updatedAt && isoToLocalDate(t.updatedAt) === date))
-      .map((t) => ({
-        number: t.pullRequestNumber as number,
-        title: t.name,
-        url: t.pullRequestUrl ?? `https://github.com/${t.repository}/pull/${t.pullRequestNumber}`,
-        repoFullName: t.repository as string,
-      }));
+      .filter((t) => (t.createdAt && isoToLocalDate(t.createdAt) === date) || (t.updatedAt && isoToLocalDate(t.updatedAt) === date));
+
+    // `gh agent-task list`'s `name` field is sometimes missing for a task even
+    // though it has an attached PR, which used to render as the literal string
+    // "undefined". Fetch the real PR title from GitHub instead of trusting it.
+    const urls = tasks.map(
+      (t) => t.pullRequestUrl ?? `https://github.com/${t.repository}/pull/${t.pullRequestNumber}`,
+    );
+    const infos = await Promise.all(urls.map((u) => fetchLinkInfo(u)));
+
+    return tasks.map((t, i) => ({
+      number: t.pullRequestNumber as number,
+      title: infos[i]?.title ?? t.name ?? `PR #${t.pullRequestNumber}`,
+      url: urls[i],
+      repoFullName: t.repository as string,
+    }));
   } catch (e) {
     console.error("[dailyActivity] fetchAgentActivity failed:", e);
     return [];
