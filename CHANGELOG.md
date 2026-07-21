@@ -2,6 +2,12 @@
 
 All notable changes to git-stuff-done are documented here.
 
+## 2026-07-21
+
+### Changed
+
+- **Daily Activity's Slack and Mentions summaries now ignore emoji reactions and use judgment about relevance** — lone reaction-style messages (like a "👍" or ":+1:") are no longer summarized as if they were substantive, and jokes/banter/throwaway comments are given minimal weight instead of being treated as meaningful updates.
+
 ## 2026-07-09
 
 ### Fixed
