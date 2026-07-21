@@ -595,6 +595,8 @@ SLACK:
 - Cite concrete specifics (names, PR/issue links, error messages, decisions) rather than vague generalities like "discussed some issues".
 - End with a markdown link to the thread using its "link:" value from the facts below, formatted as "([view thread](<link>))". Omit this if no link was given for that thread.
 - Use plain, professional language. Do not use emoji — this is a factual activity log, not a chat message, so emoji would look out of place even if my original messages used them.
+- Ignore emoji reactions and emoji-only or reaction-style messages (e.g. a lone "👍", ":+1:", ":eyes:") — they aren't substantive content and shouldn't be summarized as if they were.
+- Use judgment about what's actually work-relevant. Jokes, banter, and other throwaway comments with no real work content should be skipped or given minimal weight rather than summarized as if they were meaningful updates — focus on the substantive work being discussed.
 If a thread has multiple related sub-points, use nested "  - " bullets under the thread bullet instead of cramming everything into one sentence.
 If there are no Slack messages below, output exactly "_No public Slack activity._">
 
@@ -616,6 +618,8 @@ MENTIONS:
 - Cite concrete specifics (names, PR/issue links, error messages, what's actually being asked) rather than vague generalities like "someone mentioned me about something".
 - End with a markdown link to the thread using its "link:" value from the facts below, formatted as "([view thread](<link>))". Omit this if no link was given for that thread.
 - Use plain, professional language. Do not use emoji.
+- Ignore emoji reactions and emoji-only or reaction-style messages (e.g. a lone "👍", ":+1:", ":eyes:") — they aren't substantive content and shouldn't be summarized as if they were.
+- Use judgment about what's actually work-relevant. If a mention is just a joke, banter, or a throwaway comment with no real work content, give it minimal weight rather than treating it as a meaningful request or update.
 If a thread has multiple related sub-points, use nested "  - " bullets under the thread bullet instead of cramming everything into one sentence.
 If there are no mentions below, output exactly "_No mentions found._">
 
