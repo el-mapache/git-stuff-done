@@ -1223,6 +1223,30 @@ export async function fetchGitHubActivity(date: string): Promise<GitHubActivity>
     }
   }
 
+  // GitHub's events API occasionally omits `title` on the embedded issue/PR
+  // object (seen for some Copilot-agent-authored PRs), which would otherwise
+  // render as the literal string "undefined". Patch any such items by
+  // fetching the real title directly, since fetchLinkInfo already exists for
+  // exactly this purpose.
+  const allItems: { title: string; url: string; set: (title: string) => void }[] = [];
+  for (const arr of [issuesOpened, issuesClosed, prsOpened, prsMerged, prsClosedUnmerged, reviews, comments]) {
+    for (const item of arr) {
+      allItems.push({ title: item.title, url: item.url, set: (t) => { item.title = t; } });
+    }
+  }
+  const broken = allItems.filter((i) => !i.title);
+  if (broken.length > 0) {
+    const uniqueUrls = Array.from(new Set(broken.map((i) => i.url)));
+    const infos = await Promise.all(uniqueUrls.map((u) => fetchLinkInfo(u)));
+    const titleByUrl = new Map<string, string>();
+    infos.forEach((info, i) => {
+      if (info) titleByUrl.set(uniqueUrls[i], info.title);
+    });
+    for (const item of broken) {
+      item.set(titleByUrl.get(item.url) ?? "(untitled)");
+    }
+  }
+
   console.log(
     `[github] fetchGitHubActivity ${date}: ${issuesOpened.length} issues opened, ${issuesClosed.length} issues closed, ${prsOpened.length} PRs opened, ${prsMerged.length} PRs merged, ${prsClosedUnmerged.length} PRs closed, ${reviews.length} reviews, ${comments.length} comments, ${commits.length} commits`,
   );
