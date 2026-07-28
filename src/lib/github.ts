@@ -1108,7 +1108,12 @@ export async function fetchGitHubActivity(date: string): Promise<GitHubActivity>
 
   if (orgs.size > 0) {
     const { events, truncated: fetchTruncated } = await paginateMyEvents();
-    truncated = fetchTruncated;
+    // Only surface a truncation warning when the events feed actually cut off
+    // mid-day (busy recent day where we saw in-window events but hit the ~300
+    // cap). When 0 in-window events were collected but the feed truncated, the
+    // day is simply older than the feed reaches — the Search API supplement
+    // below authoritatively covers issues/PRs for that day, so don't nag.
+    truncated = fetchTruncated && events.length > 0;
     for (const event of events) {
       const repoFullName = event.repo.name;
       if (!inConfiguredOrg(repoFullName) || ignored(repoFullName)) continue;
@@ -1220,6 +1225,76 @@ export async function fetchGitHubActivity(date: string): Promise<GitHubActivity>
           body: truncateBody(event.payload.comment.body),
         });
       }
+    }
+
+    // The events feed above is a ~300-most-recent-events ring buffer, so a
+    // day older than that window ages out entirely and would show "no GitHub
+    // activity" on regeneration. Supplement it with the Search API, which can
+    // query issues/PRs by author + org + an explicit date range for ANY past
+    // day. This recovers the countable issue/PR activity (opened/merged/
+    // closed) for historical days and fills any title gaps for recent ones.
+    // (Reviews, comments, and commits aren't reliably reconstructable via
+    // Search and remain events-only, i.e. best-effort for old days.)
+    try {
+      const toSearchDate = (ms: number) => new Date(ms).toISOString().replace(/\.\d{3}Z$/, "Z");
+      const range = `${toSearchDate(startMs)}..${toSearchDate(endMs)}`;
+
+      const runSearch = async (q: string): Promise<ActivityItem[]> => {
+        const out: ActivityItem[] = [];
+        for (let page = 1; page <= 5; page++) {
+          // advanced_search opts into GitHub's current search backend (the
+          // legacy one is deprecated). Built as a const first so the extra
+          // query param isn't rejected by an excess-property check.
+          const params = { q, per_page: 100, page, advanced_search: "true" };
+          const res = await octokit.request("GET /search/issues", params);
+          const data = res.data as {
+            total_count: number;
+            items: { number: number; title: string; html_url: string; repository_url: string }[];
+          };
+          for (const item of data.items) {
+            const repoFullName = item.repository_url.split("/repos/")[1] ?? "";
+            if (!repoFullName || !inConfiguredOrg(repoFullName) || ignored(repoFullName)) continue;
+            out.push({ number: item.number, title: item.title, url: item.html_url, repoFullName });
+          }
+          if (out.length >= data.total_count || data.items.length < 100) break;
+        }
+        return out;
+      };
+
+      const mergeByUrl = (target: ActivityItem[], additions: ActivityItem[]) => {
+        const seen = new Set(target.map((i) => i.url));
+        for (const a of additions) {
+          if (seen.has(a.url)) continue;
+          seen.add(a.url);
+          target.push(a);
+        }
+      };
+
+      for (const org of orgs) {
+        const [
+          searchPrsOpened,
+          searchPrsMerged,
+          searchPrsClosedUnmerged,
+          searchIssuesOpened,
+          searchIssuesClosed,
+        ] = await Promise.all([
+          runSearch(`is:pr author:${user} org:${org} created:${range}`),
+          runSearch(`is:pr author:${user} org:${org} merged:${range}`),
+          runSearch(`is:pr author:${user} org:${org} closed:${range} is:unmerged`),
+          runSearch(`is:issue author:${user} org:${org} created:${range}`),
+          runSearch(`is:issue author:${user} org:${org} closed:${range}`),
+        ]);
+        mergeByUrl(prsOpened, searchPrsOpened);
+        mergeByUrl(prsMerged, searchPrsMerged);
+        mergeByUrl(prsClosedUnmerged, searchPrsClosedUnmerged);
+        mergeByUrl(issuesOpened, searchIssuesOpened);
+        mergeByUrl(issuesClosed, searchIssuesClosed);
+      }
+    } catch (e) {
+      // Search is a best-effort supplement — if it fails (rate limit, etc.),
+      // fall back to whatever the events feed provided rather than failing the
+      // whole daily-activity generation.
+      console.warn(`[github] fetchGitHubActivity: Search API supplement failed, using events only:`, (e as Error)?.message);
     }
   }
 

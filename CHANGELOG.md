@@ -6,6 +6,7 @@ All notable changes to git-stuff-done are documented here.
 
 ### Fixed
 
+- **Regenerating a past day's Daily Activity no longer comes up empty** — GitHub activity for older days used to disappear because it relied on a feed that only keeps your most recent activity. Daily Activity now also looks up the issues and pull requests you opened, merged, and closed on that specific date, so historical days show your GitHub work correctly. (Reviews, comments, and pushed commits are still only available for recent days.)
 - **Daily Activity no longer shows "undefined" as a PR or issue title** — when GitHub's activity feed doesn't include a title for a referenced pull request or issue (which can happen for large monorepo or agent-created PRs), the real title is now always fetched and shown instead of a placeholder.
 
 ### Changed
