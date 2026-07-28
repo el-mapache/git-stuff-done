@@ -597,6 +597,7 @@ SLACK:
 - Use plain, professional language. Do not use emoji — this is a factual activity log, not a chat message, so emoji would look out of place even if my original messages used them.
 - Ignore emoji reactions and emoji-only or reaction-style messages (e.g. a lone "👍", ":+1:", ":eyes:") — they aren't substantive content and shouldn't be summarized as if they were.
 - Use judgment about what's actually work-relevant. Jokes, banter, and other throwaway comments with no real work content should be skipped or given minimal weight rather than summarized as if they were meaningful updates — focus on the substantive work being discussed.
+- If a thread has no substantive work content of mine to report (e.g. it's only reactions, banter, or nothing I did of note), OMIT that thread's bullet entirely. Never output a bullet that just states there is nothing to summarize (e.g. "No activity to summarize in ..."). If omitting leaves a channel with no bullets, omit that channel heading too.
 If a thread has multiple related sub-points, use nested "  - " bullets under the thread bullet instead of cramming everything into one sentence.
 If there are no Slack messages below, output exactly "_No public Slack activity._">
 
@@ -620,6 +621,7 @@ MENTIONS:
 - Use plain, professional language. Do not use emoji.
 - Ignore emoji reactions and emoji-only or reaction-style messages (e.g. a lone "👍", ":+1:", ":eyes:") — they aren't substantive content and shouldn't be summarized as if they were.
 - Use judgment about what's actually work-relevant. If a mention is just a joke, banter, or a throwaway comment with no real work content, give it minimal weight rather than treating it as a meaningful request or update.
+- If a thread has no substantive mention worth reporting (e.g. it's only reactions, banter, or nothing that actually involves me), OMIT that thread's bullet entirely. Never output a bullet that just states there is nothing to summarize (e.g. "No activity to summarize in ..."). If omitting leaves a channel/DM with no bullets, omit that heading too.
 If a thread has multiple related sub-points, use nested "  - " bullets under the thread bullet instead of cramming everything into one sentence.
 If there are no mentions below, output exactly "_No mentions found._">
 
@@ -656,21 +658,81 @@ export function parseMentionsResponse(text: string): MentionsResult {
 
 /**
  * Post-process a model-generated per-channel bullet section (Slack or
- * Mentions): insert a blank line before each channel heading (the model
- * reliably keeps channel groups on consecutive lines despite prompt
- * instructions), then linkify any bare GitHub PR/issue URLs the model
- * preserved from the original messages using the same conventions as the
- * rest of the app (see src/lib/copilot.ts).
+ * Mentions): drop non-substantive "nothing to summarize" thread bullets the
+ * model sometimes emits (and any channel heading thereby left empty), insert a
+ * blank line before each channel heading (the model reliably keeps channel
+ * groups on consecutive lines despite prompt instructions), then linkify any
+ * bare GitHub PR/issue URLs the model preserved from the original messages
+ * using the same conventions as the rest of the app (see src/lib/copilot.ts).
+ * Returns "" if nothing substantive remains, so assembleSection can substitute
+ * the section's empty-state marker.
  */
 async function formatBulletSection(section: string): Promise<string> {
   if (!section || section.startsWith("_")) return section; // fallback / "no activity" text
-  const lines = section
+  const rawLines = section
     .split("\n")
     .map((line) => line.trimEnd())
     .filter((line) => line.trim().length > 0);
+
+  const isHeading = (line: string) => /^\*\*#?[^*]+\*\*/.test(line);
+  const isTopBullet = (line: string) => /^-\s+/.test(line);
+  const isSubBullet = (line: string) => /^\s+-\s+/.test(line);
+
+  // The model is told to omit threads with no substantive content, but it
+  // sometimes still emits a meta-bullet like "No activity to summarize in the
+  // .fr-tools thread." Drop such non-substantive top-level bullets (and their
+  // nested sub-bullets), matching the leading phrase after stripping the
+  // bullet marker and any trailing "([view thread](...))" link.
+  const noisePatterns = [
+    /^no\s+(substantive|meaningful|relevant|real|noteworthy|significant)\b/i,
+    /^no\s+activity\b/i,
+    /^no\s+\S.*\bto\s+summarize\b/i,
+    /^nothing\s+(to\s+(summarize|report|note)|of\s+note|noteworthy|substanti|relevant)\b/i,
+  ];
+  const isNoiseBullet = (line: string) => {
+    const text = line
+      .replace(/^-\s+/, "")
+      .replace(/\(\[view thread\]\([^)]*\)\)\s*$/i, "")
+      .trim();
+    return noisePatterns.some((re) => re.test(text));
+  };
+
+  // Pass 1: drop non-substantive top-level bullets together with their subs.
+  const kept: string[] = [];
+  for (let idx = 0; idx < rawLines.length; idx++) {
+    const line = rawLines[idx];
+    if (isTopBullet(line)) {
+      const subs: string[] = [];
+      while (idx + 1 < rawLines.length && isSubBullet(rawLines[idx + 1])) {
+        subs.push(rawLines[idx + 1]);
+        idx++;
+      }
+      if (isNoiseBullet(line)) continue;
+      kept.push(line, ...subs);
+    } else {
+      kept.push(line);
+    }
+  }
+
+  // Pass 2: drop any channel/DM heading left with no bullets under it.
+  const pruned: string[] = [];
+  for (let idx = 0; idx < kept.length; idx++) {
+    const line = kept[idx];
+    if (isHeading(line)) {
+      const next = kept[idx + 1];
+      if (next === undefined || isHeading(next)) continue;
+    }
+    pruned.push(line);
+  }
+  if (pruned.length === 0) return ""; // assembleSection substitutes the empty-state marker
+
+  // Pass 3: insert a blank line before each channel heading (the model
+  // reliably keeps channel groups on consecutive lines despite prompt
+  // instructions), then linkify any bare GitHub PR/issue URLs the model
+  // preserved from the original messages (see src/lib/copilot.ts).
   const out: string[] = [];
-  for (const line of lines) {
-    if (/^\*\*#?[^*]+\*\*/.test(line) && out.length > 0) out.push(""); // blank line before each new channel/DM heading
+  for (const line of pruned) {
+    if (isHeading(line) && out.length > 0) out.push("");
     out.push(line);
   }
   return linkifyGitHubMentions(out.join("\n"));

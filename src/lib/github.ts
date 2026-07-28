@@ -1224,23 +1224,30 @@ export async function fetchGitHubActivity(date: string): Promise<GitHubActivity>
   }
 
   // GitHub's events API occasionally omits `title` on the embedded issue/PR
-  // object (seen for some Copilot-agent-authored PRs), which would otherwise
-  // render as the literal string "undefined". Patch any such items by
+  // object (seen for some Copilot-agent-authored PRs and large monorepo PRs),
+  // returning `null`/`undefined` — or, defensively, a stringified "undefined"/
+  // "null" from an upstream serialization — which would otherwise render as a
+  // literal "undefined"/"null" in the activity log. Patch any such items by
   // fetching the real title directly, since fetchLinkInfo already exists for
   // exactly this purpose.
+  const isUnusableTitle = (t: unknown): boolean => {
+    if (typeof t !== "string") return true;
+    const trimmed = t.trim();
+    return trimmed === "" || trimmed === "undefined" || trimmed === "null";
+  };
   const allItems: { title: string; url: string; set: (title: string) => void }[] = [];
   for (const arr of [issuesOpened, issuesClosed, prsOpened, prsMerged, prsClosedUnmerged, reviews, comments]) {
     for (const item of arr) {
       allItems.push({ title: item.title, url: item.url, set: (t) => { item.title = t; } });
     }
   }
-  const broken = allItems.filter((i) => !i.title);
+  const broken = allItems.filter((i) => isUnusableTitle(i.title));
   if (broken.length > 0) {
     const uniqueUrls = Array.from(new Set(broken.map((i) => i.url)));
     const infos = await Promise.all(uniqueUrls.map((u) => fetchLinkInfo(u)));
     const titleByUrl = new Map<string, string>();
     infos.forEach((info, i) => {
-      if (info) titleByUrl.set(uniqueUrls[i], info.title);
+      if (info && !isUnusableTitle(info.title)) titleByUrl.set(uniqueUrls[i], info.title);
     });
     for (const item of broken) {
       item.set(titleByUrl.get(item.url) ?? "(untitled)");

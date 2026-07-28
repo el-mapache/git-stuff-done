@@ -2,6 +2,16 @@
 
 All notable changes to git-stuff-done are documented here.
 
+## 2026-07-28
+
+### Fixed
+
+- **Daily Activity no longer shows "undefined" as a PR or issue title** — when GitHub's activity feed doesn't include a title for a referenced pull request or issue (which can happen for large monorepo or agent-created PRs), the real title is now always fetched and shown instead of a placeholder.
+
+### Changed
+
+- **Daily Activity's Slack and Mentions summaries now leave out empty threads** — threads with no substantive discussion are dropped entirely rather than appearing as filler bullets like "No activity to summarize in this thread," and a channel is omitted when nothing meaningful remains to report for it.
+
 ## 2026-07-21
 
 ### Changed
