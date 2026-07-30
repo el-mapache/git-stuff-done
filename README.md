@@ -28,7 +28,6 @@
 - **GitHub Personal Access Token** with Issues, PRs, Notifications, Actions, and Contents scopes (write access required for Copilot agent assignment)
 - **GitHub CLI** (`gh`) — optional fallback for GitHub API access
 - **gh-slack extension** — optional, enables Slack thread viewing and the Daily Activity Slack summary: `gh extension install https://github.com/rneatherway/gh-slack`, then run `eval $(gh-slack auth -t <your-slack-team>)` once to authenticate.
-  This is read-only and degrades gracefully — if the extension isn't installed/authenticated or `SLACK_TEAM`/`GITHUB_ORG` isn't set, the Daily Activity section still renders the GitHub list with a "_Slack summary unavailable._" note.
 
 
 
