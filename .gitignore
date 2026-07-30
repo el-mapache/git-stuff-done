@@ -46,3 +46,7 @@ out/
 
 # copilot debug logs
 copilot-debug-logs-*
+
+# planning docs (not shipped product docs)
+docs/plans/
+docs/superpowers/

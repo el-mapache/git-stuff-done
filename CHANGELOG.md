@@ -2,6 +2,29 @@
 
 All notable changes to git-stuff-done are documented here.
 
+## 2026-07-30
+
+### Added
+
+- **Daily Activity** — the work log now gets an automatic end-of-day section summarizing your day, generated each evening (with a standalone copy also saved to `summaries/` a couple hours later) or any time via the **Daily activity** button. Re-running it never clobbers an entry that's already there.
+  - **GitHub** — issues and PRs you opened, merged, or closed, commits you authored (including Copilot agent work), reviews you gave, and comments you left, each linked back to the original page with its real title. Historical days are looked up directly so they show correctly even though the underlying activity feed only keeps recent events.
+  - **Slack** — a concise summary broken out by channel and thread (optionally scoped to a Slack Channels allowlist in Settings), reasoning about the full conversation context rather than just your own message, ignoring emoji reactions, giving jokes/banter minimal weight, and leaving out threads or channels with nothing substantive to report.
+  - **Mentions** — a separate section listing Slack messages where you're `@mentioned`, across every channel and DM you're in (not limited by the allowlist), grouped by channel/thread with reasoning about why you were mentioned, filtering out bot messages.
+
+## 2026-07-09
+
+### Fixed
+
+- **AI work-log summaries now show real titles for linked GitHub issues/PRs** — instead of a bare URL, referenced issues and pull requests are now rendered as proper links with their actual title, matching the linkification already used elsewhere in the app.
+
+## 2026-07-07
+
+### Fixed
+
+- **The work log editor now supports turning text into links** — you can select existing text and paste a URL over it to turn that text into a link (keeping your original words as the label), and you can type markdown link syntax like `[label](url)` directly and it will convert into a real link as soon as you finish typing it.
+
+---
+
 ## 2026-06-24
 
 ### Added

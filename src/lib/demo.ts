@@ -5,6 +5,7 @@ import type { AgentSession } from "@/app/api/sessions/route";
 export const DEMO_CONFIG = {
   ignoredRepos: ["noisy-bot-repo", "archived-2024"],
   fontSize: "1",
+  slackChannels: [] as string[],
 };
 
 export const DEMO_SLACK_THREAD = `**@sarah** — 2:45 PM

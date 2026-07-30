@@ -1,7 +1,7 @@
 "use client";
 
 import { useEditor, EditorContent, type Editor } from '@tiptap/react';
-import { Extension } from "@tiptap/core";
+import { Extension, InputRule } from "@tiptap/core";
 import Link from '@tiptap/extension-link';
 import StarterKit from "@tiptap/starter-kit";
 import { ListItem } from "@tiptap/extension-list-item";
@@ -22,6 +22,77 @@ import MentionList, {
 } from "./MentionList";
 
 const SLACK_URL_RE = /^https?:\/\/[^/]*\.slack\.com\/archives\//;
+
+// Matches a bare URL that should be recognized when pasted over a selection
+// or typed inside markdown link syntax. Intentionally broad (http(s)/www/
+// bare-domain-with-path) rather than relying solely on the Link extension's
+// stricter `shouldAutoLink` validation.
+const BARE_URL_RE = /^(?:https?:\/\/|www\.)\S+$/i;
+
+// When text is selected and the clipboard contains nothing but a URL,
+// turn the selected text into a link pointing at that URL (keeping the
+// original text as the link label) instead of inserting/replacing with the
+// raw URL text. This is a more lenient safety net than the Link extension's
+// built-in `linkOnPaste`, which can silently no-op for URLs it doesn't
+// consider valid (e.g. bare hostnames, internal domains).
+const LinkSelectionOnPaste = Extension.create({
+  name: "linkSelectionOnPaste",
+  priority: 1100,
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: new PluginKey("linkSelectionOnPaste"),
+        props: {
+          handlePaste: (view, event) => {
+            const { state } = view;
+            const { selection } = state;
+            if (selection.empty) return false;
+
+            const text = event.clipboardData?.getData("text/plain")?.trim();
+            if (!text || !BARE_URL_RE.test(text)) return false;
+
+            const linkType = state.schema.marks.link;
+            if (!linkType) return false;
+
+            const href = text.startsWith("www.") ? `https://${text}` : text;
+            const tr = state.tr.addMark(
+              selection.from,
+              selection.to,
+              linkType.create({ href }),
+            );
+            view.dispatch(tr);
+            return true;
+          },
+        },
+      }),
+    ];
+  },
+});
+
+// Typing `[label](url)` converts it into an actual link as soon as the
+// closing paren is typed — mirrors the markdown link syntax already
+// supported when pasting/loading markdown content.
+const MarkdownLinkInputRule = Extension.create({
+  name: "markdownLinkInputRule",
+  addInputRules() {
+    return [
+      new InputRule({
+        find: /\[([^[\]]+)\]\((\S+)\)$/,
+        handler: ({ state, range, match }) => {
+          const label = match[1];
+          const href = match[2];
+          if (!label || !href) return;
+          const linkType = state.schema.marks.link;
+          if (!linkType) return;
+
+          const { tr } = state;
+          tr.replaceWith(range.from, range.to, state.schema.text(label, [linkType.create({ href })]));
+          tr.removeStoredMark(linkType);
+        },
+      }),
+    ];
+  },
+});
 
 // Inserts a trailing space after any paste so the cursor escapes the link node.
 const TrailingSpaceAfterPaste = Extension.create({
@@ -504,6 +575,8 @@ const TiptapEditor = forwardRef<TiptapEditorHandle, TiptapEditorProps>(
           transformPastedText: true,
           transformCopiedText: true,
         }),
+        LinkSelectionOnPaste,
+        MarkdownLinkInputRule,
         TrailingSpaceAfterPaste,
         EscapeLinkOnSpace,
         CodeFenceShortcut,

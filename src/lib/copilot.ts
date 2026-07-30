@@ -6,7 +6,7 @@ const MODEL = 'gpt-4.1';
 /**
  * Simple fallback: replace bare GitHub URLs with markdown links using fetched titles.
  */
-function applyLinkification(
+export function applyLinkification(
   markdown: string,
   linkMap: Map<string, GitHubLinkInfo>,
 ): string {
@@ -14,9 +14,16 @@ function applyLinkification(
   linkMap.forEach((info, url) => {
     const label = `${info.title.replace(/`/g, '')} (${info.owner}/${info.repo}#${info.number})`;
     const escaped = url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Replace existing markdown links pointing at this URL, even if they already
+    // have their own (possibly generic/untitled) label — e.g. "[issue #123](url)".
+    // The real title always wins.
+    result = result.replace(
+      new RegExp(`\\[[^\\]]*\\]\\(${escaped}\\)`, 'g'),
+      `[${label}](${url})`,
+    );
     // Replace <url> autolinks (angle-bracket wrapped)
     result = result.replace(new RegExp(`<${escaped}>`, 'g'), `[${label}](${url})`);
-    // Replace bare URLs (not already inside markdown links)
+    // Replace remaining bare URLs (not already inside markdown links)
     const bare = new RegExp(`(?<!\\()${escaped}(?!\\))`, 'g');
     result = result.replace(bare, `[${label}](${url})`);
   });
