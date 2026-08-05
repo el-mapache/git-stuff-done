@@ -32,33 +32,36 @@ async function fetchModels(): Promise<ModelOption[]> {
 }
 
 export function useModels(enabled = true): { models: ModelOption[]; loading: boolean } {
-  const [models, setModels] = useState<ModelOption[]>(cachedModels ?? []);
+  // Only the fetched-from-network result needs to live in state; the
+  // already-cached-and-valid case is derived directly during render below,
+  // so we don't need to sync it into state via an effect.
+  const [fetchedModels, setFetchedModels] = useState<ModelOption[] | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!enabled) return;
-
-    if (isCacheValid()) {
-      setModels(cachedModels!);
-      return;
-    }
+    if (!enabled || isCacheValid()) return;
 
     let cancelled = false;
-    setLoading(true);
 
-    if (!fetchPromise) {
-      fetchPromise = fetchModels().finally(() => { fetchPromise = null; });
-    }
-
-    fetchPromise.then((result) => {
+    // Wrapped in an async IIFE (rather than calling setLoading(true)
+    // synchronously at the top of the effect body) per
+    // react-hooks/set-state-in-effect.
+    (async () => {
+      setLoading(true);
+      if (!fetchPromise) {
+        fetchPromise = fetchModels().finally(() => { fetchPromise = null; });
+      }
+      const result = await fetchPromise;
       if (!cancelled) {
-        setModels(result);
+        setFetchedModels(result);
         setLoading(false);
       }
-    });
+    })();
 
     return () => { cancelled = true; };
   }, [enabled]);
+
+  const models = !enabled ? [] : isCacheValid() ? cachedModels! : (fetchedModels ?? []);
 
   return { models, loading };
 }

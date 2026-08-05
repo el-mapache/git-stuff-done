@@ -29,6 +29,7 @@ import MyPRs from './MyPRs';
 import MyIssues from './MyIssues';
 import GitHubNotifications from './GitHubNotifications';
 import AgentSessions from './AgentSessions';
+import Scratchpad from './Scratchpad';
 import AiModal from './AiModal';
 import SummariesModal from './SummariesModal';
 import SearchModal from './SearchModal';
@@ -36,7 +37,7 @@ import CalendarPicker from './CalendarPicker';
 import { GITHUB_ORG } from '@/lib/constants';
 import { DEMO_CONFIG } from '@/lib/demo';
 
-type PanelId = 'log' | 'todos' | 'prs' | 'issues' | 'notifs' | 'sessions';
+type PanelId = 'log' | 'todos' | 'prs' | 'issues' | 'notifs' | 'sessions' | 'scratchpad';
 type LayoutMode = 'grid' | 'column' | 'row';
 
 const PANEL_LABELS: Record<PanelId, string> = {
@@ -46,8 +47,9 @@ const PANEL_LABELS: Record<PanelId, string> = {
   issues: 'My Issues',
   notifs: 'Notifications',
   sessions: 'Agent Sessions',
+  scratchpad: 'Scratchpad',
 };
-const ALL_PANELS: PanelId[] = ['log', 'todos', 'prs', 'issues', 'notifs', 'sessions'];
+const ALL_PANELS: PanelId[] = ['log', 'todos', 'prs', 'issues', 'notifs', 'sessions', 'scratchpad'];
 const DEFAULT_PANELS: PanelId[] = ['log', 'todos', 'prs', 'issues', 'notifs'];
 
 type CommitState = 'idle' | 'committing' | 'success' | 'no-changes' | 'error';
@@ -70,17 +72,23 @@ function loadLayout(): LayoutMode {
   return stored === 'grid' || stored === 'column' || stored === 'row' ? stored : 'grid';
 }
 function loadVisiblePanels(): Set<PanelId> {
-  if (typeof window === 'undefined') return new Set(ALL_PANELS);
+  if (typeof window === 'undefined') return new Set(DEFAULT_PANELS);
   try {
     const stored = localStorage.getItem('gsd-visible-panels');
-    if (stored) return new Set(JSON.parse(stored) as PanelId[]);
+    if (stored) {
+      const parsed = JSON.parse(stored) as PanelId[];
+      const visible = parsed.filter((id): id is PanelId => ALL_PANELS.includes(id));
+      if (visible.length) {
+        return new Set(visible);
+      }
+    }
   } catch { /* ignore */ }
   return new Set(DEFAULT_PANELS);
 }
 
 const DEFAULT_PANEL_SIDE: Record<PanelId, 'left' | 'right'> = {
   log: 'left', todos: 'left',
-  prs: 'right', issues: 'right', notifs: 'right', sessions: 'right',
+  prs: 'right', issues: 'right', notifs: 'right', sessions: 'right', scratchpad: 'left',
 };
 
 function loadPanelOrder(): PanelId[] {
@@ -286,18 +294,22 @@ export default function Dashboard() {
   const [showSettings, setShowSettings] = useState(false);
   const [ignoredRepos, setIgnoredRepos] = useState<string[]>([]);
   const [repoInput, setRepoInput] = useState('');
+  const [slackChannels, setSlackChannels] = useState<string[]>([]);
+  const [channelInput, setChannelInput] = useState('');
   const [notifsKey, setNotifsKey] = useState(0);
   const [fontScale, setFontScale] = useState(loadFontScale);
 
   const fetchConfig = useCallback(async () => {
     if (isDemo) {
       setIgnoredRepos(DEMO_CONFIG.ignoredRepos);
+      setSlackChannels(DEMO_CONFIG.slackChannels);
       return;
     }
     try {
       const res = await fetch('/api/config');
       const data = await res.json();
       setIgnoredRepos(data.ignoredRepos ?? []);
+      setSlackChannels(data.slackChannels ?? []);
       const serverScale = data.fontSize ?? '1';
       setFontScale(serverScale);
       document.documentElement.style.setProperty('--text-scale', serverScale);
@@ -328,6 +340,28 @@ export default function Dashboard() {
 
   async function removeIgnoredRepo(repo: string) {
     await saveIgnoredRepos(ignoredRepos.filter((r) => r !== repo));
+  }
+
+  async function saveSlackChannels(channels: string[]) {
+    setSlackChannels(channels);
+    if (!isDemo) {
+      await fetch('/api/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slackChannels: channels }),
+      });
+    }
+  }
+
+  async function addSlackChannel() {
+    const channel = channelInput.trim().replace(/^#/, '');
+    if (!channel || slackChannels.includes(channel)) return;
+    setChannelInput('');
+    await saveSlackChannels([...slackChannels, channel]);
+  }
+
+  async function removeSlackChannel(channel: string) {
+    await saveSlackChannels(slackChannels.filter((c) => c !== channel));
   }
 
   async function handleCommit() {
@@ -578,6 +612,32 @@ export default function Dashboard() {
               ))}
             </div>
           )}
+          {/* Slack Channels allowlist for Daily Activity */}
+          <div className="mt-4 pt-4 border-t border-border">
+            <h3 className="text-sm font-semibold text-foreground mb-2">Slack Channels <span className="text-muted-foreground font-normal">(for Daily Activity summary — leave empty to check all public channels)</span></h3>
+            <form onSubmit={(e) => { e.preventDefault(); addSlackChannel(); }} className="flex gap-2 mb-2">
+              <input
+                type="text"
+                value={channelInput}
+                onChange={(e) => setChannelInput(e.target.value)}
+                placeholder="channel-name"
+                className="flex-1 rounded-xl border border-input bg-muted/50 px-3 py-1.5 text-sm text-foreground placeholder-muted-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/20"
+              />
+              <button type="submit" className="rounded-xl bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground transition hover:opacity-80">Add</button>
+            </form>
+            {slackChannels.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No channels configured — checking all public channels.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {slackChannels.map((channel) => (
+                  <span key={channel} className="inline-flex items-center gap-1 rounded-full bg-secondary border border-border px-3 py-1 text-xs text-secondary-foreground font-medium">
+                    #{channel}
+                    <button onClick={() => removeSlackChannel(channel)} className="text-muted-foreground hover:text-foreground"><X className="h-3 w-3" aria-hidden="true" /></button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
           {/* Layout Reset */}
           <div className="mt-4 pt-4 border-t border-border">
             <h3 className="text-sm font-semibold text-foreground mb-2">Panel Layout</h3>
@@ -670,6 +730,7 @@ export default function Dashboard() {
       case 'issues': return panelCard(id, <MyIssues isDemo={isDemo} onInsert={(text) => insertAtCursorRef.current?.(text)} />, handleListeners);
       case 'notifs': return panelCard(id, <GitHubNotifications refreshTrigger={notifsKey} isDemo={isDemo} onInsert={(text) => insertAtCursorRef.current?.(text)} />, handleListeners);
       case 'sessions': return panelCard(id, <AgentSessions isDemo={isDemo} onInsert={(text) => insertAtCursorRef.current?.(text)} />, handleListeners);
+      case 'scratchpad': return panelCard(id, <Scratchpad isDemo={isDemo} />, handleListeners);
     }
   }
 

@@ -1,11 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertTriangle, FileText, Link2 } from 'lucide-react';
+import { AlertTriangle, FileText, Link2, Sparkles } from 'lucide-react';
 import TiptapEditor, { type TiptapEditorHandle } from './TiptapEditor';
 import { DEMO_LOG_CONTENT, DEMO_RICH_LOG_CONTENT } from '@/lib/demo';
 import SlackThreadModal from './SlackThreadModal';
 import { PLACEHOLDER_PREFIX } from '@/lib/customImage';
+import { upsertBlock } from '@/lib/managedBlock';
+import { DAILY_ACTIVITY_KEY } from '@/lib/constants';
+
 
 type SaveStatus = 'idle' | 'unsaved' | 'saving' | 'saved';
 
@@ -31,13 +34,19 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
   const [content, setContent] = useState('');
   const [status, setStatus] = useState<SaveStatus>('idle');
   const [linkifying, setLinkifying] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [hasContent, setHasContent] = useState(false);
   const [slackModalUrl, setSlackModalUrl] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestContentRef = useRef(content);
+  const currentDateRef = useRef(currentDate);
   const editorRef = useRef<TiptapEditorHandle>(null);
+
+  useEffect(() => {
+    currentDateRef.current = currentDate;
+  }, [currentDate]);
 
   useEffect(() => {
     let cancelled = false;
@@ -110,6 +119,45 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
     }
   };
 
+  const handleGenerateActivity = async () => {
+    if (isDemo) return;
+    const requestDate = currentDate;
+    setGenerating(true);
+    try {
+      // Persist current edits first so we merge into the latest content.
+      await save(latestContentRef.current);
+      const res = await fetch('/api/daily-activity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: requestDate }),
+      });
+      const data = await res.json();
+      // The server already wrote+committed the block for requestDate. If the
+      // user navigated to a different day while this (up to ~5 min) request
+      // was in flight, applying the merge here would write the wrong day's
+      // content, so skip the client-side merge/save in that case. Read from
+      // a ref (not the closure-local currentDate, which is frozen at the
+      // value from click time) so navigation during the await is detected.
+      if (currentDateRef.current !== requestDate) return;
+      if (data.success && data.section) {
+        // Cancel any pending debounced autosave so it can't land after (and
+        // silently overwrite) the merge-save below with stale pre-merge text.
+        if (timerRef.current) clearTimeout(timerRef.current);
+        const merged = upsertBlock(latestContentRef.current, DAILY_ACTIVITY_KEY, data.section);
+        setContent(merged);
+        latestContentRef.current = merged;
+        setHasContent(!!merged.trim());
+        await save(merged);
+      } else {
+        handleUploadError(data.error || 'Failed to generate daily activity');
+      }
+    } catch {
+      handleUploadError('Failed to generate daily activity');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const scheduleAutosave = useCallback((text: string) => {
     setStatus('unsaved');
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -177,6 +225,15 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
               {STATUS_LABEL[status]}
             </span>
           )}
+          <button
+            onClick={handleGenerateActivity}
+            disabled={generating || isDemo}
+            title={isDemo ? 'Disabled in demo mode' : 'Generate today\u2019s GitHub + Slack activity summary'}
+            className="flex items-center gap-1.5 rounded-lg bg-accent px-2.5 py-1 text-xs font-semibold text-accent-foreground transition hover:opacity-80 disabled:opacity-40"
+          >
+            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+            {generating ? 'Generating…' : 'Daily activity'}
+          </button>
           <button
             onClick={handleLinkify}
             disabled={linkifying || !hasContent}

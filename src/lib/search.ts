@@ -1,8 +1,7 @@
 import { readFile, readdir } from 'fs/promises';
 import path from 'path';
 import { readLog, readRichLog, getDataRoot } from './files';
-import { extractGitHubUrls, fetchLinkInfo, getOctokit, parseGitHubUrl } from './github';
-import { GITHUB_ORG } from './constants';
+import { getOctokit, parseGitHubUrl } from './github';
 import { callCopilot } from './copilot';
 
 export type SearchMode = 'exhaustive' | 'date_bounded' | 'recent_first';

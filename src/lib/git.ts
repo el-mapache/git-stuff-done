@@ -11,7 +11,7 @@ export function commitWorkLog(
   for (const dir of dirs) {
     try {
       execFileSync("git", ["add", dir], { cwd });
-    } catch (e) {
+    } catch {
       // Ignore if directory doesn't exist or is empty
     }
   }
