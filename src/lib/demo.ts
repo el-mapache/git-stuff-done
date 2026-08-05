@@ -22,6 +22,10 @@ Yes to both! Let me create tickets for:
 
 I'll add these to the Q3 roadmap doc.`;
 
+export const DEMO_SLACK_SUMMARY = `- Mobile responsiveness is the Q3 priority — 40% of users are on mobile and the dashboard is barely usable on phones
+- API latency needs to be addressed alongside the layout work (slow chart renders on mobile networks)
+- **@you** will create tickets for: mobile responsive layout, API response caching, and chart lazy loading, then add them to the Q3 roadmap doc`;
+
 // Raw log content — bare GitHub/Slack URLs so Linkify has something to resolve
 export const DEMO_LOG_CONTENT = `
 ## 🛠 Analytics Dashboard

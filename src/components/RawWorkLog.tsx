@@ -260,6 +260,7 @@ export default function RawWorkLog({ date, isDemo = false, onRegisterInsert }: R
         onClose={() => setSlackModalUrl(null)}
         url={slackModalUrl ?? ''}
         onInsert={(text) => editorRef.current?.insertAtCursor(text)}
+        isDemo={isDemo}
       />
       {uploadError && (
         <div className="shrink-0 border-t border-destructive/20 px-4 py-2.5 bg-destructive/10 text-destructive text-sm flex items-center gap-2">
