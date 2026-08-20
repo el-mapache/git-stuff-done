@@ -54,6 +54,7 @@
    Edit `.env.local`:
    - `GITHUB_READ_TOKEN` — the PAT from step 2
    - `GITHUB_ORG` — your GitHub org name
+   - `SLACK_TEAM` — your Slack team name, such as `github-grid.enterprise`
    - `GIT_STUFF_DONE_DATA_DIR` — (recommended) path to a separate git repo for logs/TODOs
 
 4. **Run the dashboard:**
